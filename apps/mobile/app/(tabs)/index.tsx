@@ -2,10 +2,10 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
 
 import { GlassCard } from '@/components/glass-card';
+import { defaultFontFamily } from '@/constants/theme';
 
 // Sample project data
 const SAMPLE_PROJECTS = [
@@ -21,6 +21,12 @@ const SAMPLE_PROJECTS = [
     user: 'User 2',
     description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
   },
+  {
+    id: 3,
+    title: 'Project Example',
+    user: 'User 3',
+    description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
+  },
 ];
 
 export default function HomeScreen() {
@@ -31,13 +37,14 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <LinearGradient
         colors={['#E0D9E8', '#F2C5D6', '#F6D3B5']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}>
-        
+
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.iconButton}>
@@ -49,13 +56,13 @@ export default function HomeScreen() {
         </View>
 
         {/* Main Content */}
-        <ScrollView 
-          style={styles.scrollView} 
+        <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          
+
           {/* Top Card */}
-          <GlassCard 
+          <GlassCard
             style={[
               styles.topCard,
               isRecording && styles.topCardGrayscaled
@@ -63,14 +70,14 @@ export default function HomeScreen() {
             intensity={20}
             tint="light">
             <View style={styles.topCardContent}>
-              <Text 
+              <Text
                 style={[
                   styles.topCardTitle,
                   isRecording && styles.grayscaledText
                 ]}>
-                What's on{'\n'}your mind?
+                What&apos;s on{'\n'}your mind?
               </Text>
-              <Text 
+              <Text
                 style={[
                   styles.topCardSubtitle,
                   isRecording && styles.grayscaledText
@@ -81,61 +88,63 @@ export default function HomeScreen() {
           </GlassCard>
 
           {/* Projects Card */}
-          <GlassCard 
+          <GlassCard
             style={[
               styles.projectsCard,
               isRecording && styles.projectsCardGrayscaled
             ]}
             intensity={20}
             tint="light">
-            {SAMPLE_PROJECTS.map((project, index) => (
-              <View key={project.id}>
-                {index > 0 && <View style={styles.divider} />}
-                <View style={styles.projectItem}>
-                  <View style={[
-                    styles.avatarPlaceholder,
-                    isRecording && styles.grayscaledAvatar
-                  ]} />
-                  <View style={styles.projectInfo}>
-                    <Text 
-                      style={[
-                        styles.projectTitle,
-                        isRecording && styles.grayscaledText
-                      ]}>
-                      {project.title}
-                    </Text>
-                    <Text 
-                      style={[
-                        styles.projectUser,
-                        isRecording && styles.grayscaledText
-                      ]}>
-                      {project.user}
-                    </Text>
-                    <Text 
-                      style={[
-                        styles.projectDescription,
-                        isRecording && styles.grayscaledText
-                      ]}>
-                      {project.description}
-                    </Text>
+            <ScrollView>
+              {SAMPLE_PROJECTS.map((project, index) => (
+                <View key={project.id}>
+                  {index > 0 && <View style={styles.divider} />}
+                  <View style={styles.projectItem}>
+                    <View style={[
+                      styles.avatarPlaceholder,
+                      isRecording && styles.grayscaledAvatar
+                    ]} />
+                    <View style={styles.projectInfo}>
+                      <Text
+                        style={[
+                          styles.projectTitle,
+                          isRecording && styles.grayscaledText
+                        ]}>
+                        {project.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.projectUser,
+                          isRecording && styles.grayscaledText
+                        ]}>
+                        {project.user}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.projectDescription,
+                          isRecording && styles.grayscaledText
+                        ]}>
+                        {project.description}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </ScrollView>
           </GlassCard>
         </ScrollView>
 
         {/* Bottom Navigation */}
         <View style={styles.bottomNavContainer}>
-          <BlurView intensity={30} tint="light" style={styles.bottomNav}>
+          <BlurView intensity={50} tint="light" style={styles.bottomNav}>
             {/* Voice Record Button */}
-            <Pressable 
+            <Pressable
               onPress={handleToggleRecord}
               style={styles.recordButtonContainer}>
               {isRecording ? (
-                <BlurView intensity={30} tint="light" style={styles.recordButtonBlur}>
+                <BlurView intensity={70} tint="light" style={styles.recordButtonBlur}>
                   <View style={styles.recordButtonInner}>
-                    <Ionicons name="mic" size={32} color="#666" />
+                    {/* <Ionicons name="mic" size={32} color="#666" /> */}
                   </View>
                 </BlurView>
               ) : (
@@ -146,7 +155,7 @@ export default function HomeScreen() {
                   locations={[0, 1]}
                   style={styles.recordButtonGradient}>
                   <View style={styles.recordButtonInner}>
-                    <Ionicons name="mic" size={32} color="#FFF" />
+                    {/* <Ionicons name="mic" size={32} color="#FFF" /> */}
                   </View>
                 </LinearGradient>
               )}
@@ -154,13 +163,14 @@ export default function HomeScreen() {
           </BlurView>
         </View>
       </LinearGradient>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#E0D9E8',
   },
   gradient: {
     flex: 1,
@@ -170,8 +180,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
+    paddingBottom: 16,
   },
   iconButton: {
     width: 44,
@@ -203,6 +213,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginBottom: 16,
     overflow: 'hidden',
+    maxHeight: 200,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -230,6 +241,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontStyle: 'italic',
     letterSpacing: 0.5,
+    fontFamily: defaultFontFamily,
   },
   topCardSubtitle: {
     fontSize: 16,
@@ -237,17 +249,22 @@ const styles = StyleSheet.create({
     color: '#AAA',
     textAlign: 'center',
     letterSpacing: 0.3,
+    fontFamily: defaultFontFamily,
   },
   projectsCard: {
     borderRadius: 30,
     overflow: 'hidden',
-    minHeight: 400,
+    maxHeight: 400,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    backgroundColor: '#26262640',
+    color: '#fff',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowRadius: 16,
       },
       android: {
         elevation: 4,
@@ -259,7 +276,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(200, 200, 200, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     marginVertical: 24,
   },
   projectItem: {
@@ -282,20 +299,23 @@ const styles = StyleSheet.create({
   projectTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
+    color: '#fff',
     marginBottom: 8,
+    fontFamily: defaultFontFamily,
   },
   projectUser: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#999',
+    color: '#fff',
     marginBottom: 8,
+    fontFamily: defaultFontFamily,
   },
   projectDescription: {
     fontSize: 14,
     fontWeight: '300',
-    color: '#888',
+    color: '#fff',
     lineHeight: 20,
+    fontFamily: defaultFontFamily,
   },
   grayscaledText: {
     opacity: 0.6,
@@ -314,8 +334,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 50,
     paddingVertical: 20,
-    borderRadius: 35,
+    borderRadius: 50,
     overflow: 'hidden',
+    borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -331,6 +354,7 @@ const styles = StyleSheet.create({
   recordButtonContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '70%',
   },
   recordButtonBlur: {
     width: 70,
@@ -344,9 +368,9 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 28, // more blurry
       },
       android: {
         elevation: 8,
@@ -362,13 +386,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowColor: '#F5F5F5',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 8,
+        elevation: 18,
       },
     }),
   },

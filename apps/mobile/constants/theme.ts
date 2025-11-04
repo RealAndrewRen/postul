@@ -29,25 +29,35 @@ export const Colors = {
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    /** iOS SF Pro - System Default */
+    sans: 'System',
+    /** iOS SF Pro Rounded */
+    rounded: 'System',
+    /** iOS SF Pro Serif */
+    serif: 'System',
+    /** iOS SF Mono */
+    mono: 'Menlo',
   },
   default: {
-    sans: 'normal',
+    /** Android: Roboto (system default) is closest to SF Pro */
+    sans: 'Roboto',
+    rounded: 'Roboto',
     serif: 'serif',
-    rounded: 'normal',
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    /** Web: SF Pro from system font stack */
+    sans: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    rounded: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'SF Pro Display', sans-serif",
+    mono: "'SF Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
+});
+
+// Default font family for the entire app
+export const defaultFontFamily = Platform.select({
+  ios: 'System', // SF Pro on iOS
+  android: 'Roboto', // Closest to SF Pro on Android
+  web: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+  default: 'System',
 });
