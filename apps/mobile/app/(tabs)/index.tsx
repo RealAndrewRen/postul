@@ -1,8 +1,10 @@
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, StatusBar, Alert } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 
 import { GlassCard } from '@/components/glass-card';
 import { defaultFontFamily } from '@/constants/theme';
@@ -31,9 +33,84 @@ const SAMPLE_PROJECTS = [
 
 export default function HomeScreen() {
   const [isRecording, setIsRecording] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
-  const handleToggleRecord = () => {
-    setIsRecording(!isRecording);
+  useEffect(() => {
+    // Request audio permissions on mount
+    (async () => {
+      try {
+        const permissionResponse = await Audio.requestPermissionsAsync();
+        if (permissionResponse.status !== 'granted') {
+          Alert.alert(
+            'Permission Required',
+            'Please grant microphone permission to use voice recording.',
+          );
+        }
+      } catch (error) {
+        console.error('Error requesting audio permissions:', error);
+      }
+    })();
+
+    // Cleanup on unmount
+    return () => {
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync();
+      }
+    };
+  }, []);
+
+  const handleToggleRecord = async () => {
+    try {
+      if (isRecording) {
+        // Stop recording
+        if (recordingRef.current) {
+          // Haptic feedback for stop
+          if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          
+          await recordingRef.current.stopAndUnloadAsync();
+          const uri = recordingRef.current.getURI();
+          console.log('Recording saved to:', uri);
+          recordingRef.current = null;
+          setIsRecording(false);
+        }
+      } else {
+        // Start recording
+        try {
+          // Haptic feedback for start
+          if (Platform.OS === 'ios') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: true,
+            playsInSilentModeIOS: true,
+          });
+
+          const { recording: newRecording } = await Audio.Recording.createAsync(
+            Audio.RecordingOptionsPresets.HIGH_QUALITY,
+          );
+          
+          recordingRef.current = newRecording;
+          setIsRecording(true);
+          
+          // Listen for recording status updates
+          newRecording.setOnRecordingStatusUpdate((status) => {
+            if (status.isDoneRecording) {
+              setIsRecording(false);
+            }
+          });
+        } catch (error) {
+          console.error('Error starting recording:', error);
+          Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling recording:', error);
+      Alert.alert('Error', 'Something went wrong with the recording.');
+      setIsRecording(false);
+    }
   };
 
   return (
