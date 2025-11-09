@@ -7,7 +7,7 @@ import uvicorn
 
 from config import settings
 from database import init_db
-from routers import ideas
+from routers import ideas, projects
 from schema import HealthResponse
 
 # Configure logging
@@ -56,6 +56,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(ideas.router)
+app.include_router(projects.router)
 
 
 # Health check endpoint

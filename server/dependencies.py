@@ -1,31 +1,36 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Annotated
+from typing import Annotated, Optional
 import logging
 
 from services.supabase_service import supabase_service
 
 logger = logging.getLogger(__name__)
 
-# Security scheme for JWT token
-security = HTTPBearer()
+# Security scheme for JWT token (optional)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]
-) -> str:
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> Optional[str]:
     """
     FastAPI dependency to verify Supabase JWT token and return user ID.
+    Returns None if no token is provided (anonymous user).
     
     Args:
-        credentials: HTTPBearer credentials containing the JWT token
+        credentials: Optional HTTPBearer credentials containing the JWT token
         
     Returns:
-        User ID (UUID string) from the verified token
+        User ID (UUID string) from the verified token, or None if anonymous
         
     Raises:
-        HTTPException: If token is invalid or missing
+        HTTPException: If token is provided but invalid
     """
+    if not credentials:
+        # No token provided - anonymous user
+        return None
+    
     token = credentials.credentials
     
     try:
@@ -47,6 +52,25 @@ async def get_current_user(
         )
 
 
+def get_user_id_or_anonymous(user_id: Optional[str]) -> str:
+    """
+    Get user ID or generate an anonymous user ID.
+    For anonymous users, we use a session-based identifier.
+    In a real app, you might want to use session cookies or similar.
+    
+    Args:
+        user_id: Optional authenticated user ID
+        
+    Returns:
+        User ID string (authenticated or anonymous)
+    """
+    if user_id:
+        return user_id
+    # Generate a consistent anonymous user ID for the session
+    # In production, you might want to use session-based IDs
+    return "anonymous"
+
+
 # Type alias for dependency injection
-CurrentUser = Annotated[str, Depends(get_current_user)]
+OptionalCurrentUser = Annotated[Optional[str], Depends(get_current_user)]
 

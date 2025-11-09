@@ -1,39 +1,21 @@
-import { BlurView } from 'expo-blur';
 import { isLiquidGlassSupported, LiquidGlassView } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useState, useEffect } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, StatusBar, Alert } from 'react-native';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 
-import { GlassCard } from '@/components/glass-card';
 import { defaultFontFamily } from '@/constants/theme';
-
-// Sample project data
-const SAMPLE_PROJECTS = [
-  {
-    id: 1,
-    title: 'Project Example',
-    user: 'User 1',
-    description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
-  },
-  {
-    id: 2,
-    title: 'Project Example',
-    user: 'User 2',
-    description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
-  },
-  {
-    id: 3,
-    title: 'Project Example',
-    user: 'User 3',
-    description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
-  },
-];
+import { apiService, Project } from '@/services/api';
 
 export default function HomeScreen() {
   const [isRecording, setIsRecording] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const finalTranscriptRef = useRef<string>('');
 
   // Listen to speech recognition events
   useSpeechRecognitionEvent('start', () => {
@@ -45,21 +27,33 @@ export default function HomeScreen() {
   });
 
   useSpeechRecognitionEvent('result', (event) => {
-    const { results, isFinal } = event;
+    const { results, isFinal } = event as any;
     if (results && results.length > 0) {
-      const transcript = results[0].transcript;
+      // Build complete transcript from all results
+      // The results array contains all transcript parts so far
+      const fullTranscript = results
+        .map((result: any) => result.transcript)
+        .join(' ')
+        .trim();
 
       console.log('Speech recognition result:', {
-        transcript,
+        fullTranscript,
         isFinal,
-        confidence: results[0].confidence,
-        allResults: results,
+        resultsCount: results.length,
+        latestResult: results[results.length - 1],
       });
 
+      // Update current transcript for display
+      setCurrentTranscript(fullTranscript);
+
+      // Store transcript (will be used when recording stops)
+      // We update it on every result so we have the latest
+      finalTranscriptRef.current = fullTranscript;
+
       if (isFinal) {
-        console.log('=== FINAL TRANSCRIPTION ===');
-        console.log(transcript);
-        console.log('===========================');
+        console.log('=== FINAL TRANSCRIPTION DETECTED ===');
+        console.log(fullTranscript);
+        console.log('====================================');
       }
     }
   });
@@ -68,9 +62,28 @@ export default function HomeScreen() {
     console.log('Audio capture ended');
   });
 
-  useSpeechRecognitionEvent('end', () => {
+  useSpeechRecognitionEvent('end', async () => {
     console.log('Speech recognition ended');
     setIsRecording(false);
+
+    // Get the final transcript (use current transcript if final transcript is empty)
+    let transcript = finalTranscriptRef.current.trim();
+    if (!transcript && currentTranscript) {
+      transcript = currentTranscript.trim();
+    }
+
+    console.log('Final transcript to send:', transcript);
+
+    // Send transcript to server for analysis if we have content
+    if (transcript.length > 0) {
+      await analyzeIdea(transcript);
+    } else {
+      console.log('No transcript to send');
+    }
+
+    // Clear transcript
+    setCurrentTranscript('');
+    finalTranscriptRef.current = '';
   });
 
   useSpeechRecognitionEvent('error', (event) => {
@@ -79,8 +92,13 @@ export default function HomeScreen() {
     setIsRecording(false);
   });
 
+  // Fetch projects on mount
   useEffect(() => {
-    // Check if speech recognition is available
+    fetchProjects();
+  }, []);
+
+  // Check if speech recognition is available
+  useEffect(() => {
     (async () => {
       try {
         const available = ExpoSpeechRecognitionModule.isRecognitionAvailable();
@@ -98,7 +116,59 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      const fetchedProjects = await apiService.getProjects();
+      setProjects(fetchedProjects);
+      console.log('Fetched projects:', fetchedProjects);
+    } catch (error: any) {
+      console.error('Error fetching projects:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to fetch projects. Please check your connection.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const analyzeIdea = async (transcribedText: string) => {
+    try {
+      setIsAnalyzing(true);
+      console.log('Analyzing idea:', transcribedText);
+
+      const response = await apiService.analyzeIdea({
+        transcribed_text: transcribedText,
+      });
+
+      console.log('Analysis response:', response);
+
+      // Refresh projects list (in case the idea was associated with a project)
+      await fetchProjects();
+
+      // Show success message
+      Alert.alert(
+        'Success',
+        'Your idea has been analyzed!',
+      );
+    } catch (error: any) {
+      console.error('Error analyzing idea:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to analyze idea. Please try again.',
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleToggleRecord = async () => {
+    // Don't allow toggling while analyzing
+    if (isAnalyzing) {
+      return;
+    }
+
     try {
       if (isRecording) {
         // Stop recognition
@@ -107,6 +177,8 @@ export default function HomeScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
+        // Clear transcripts before stopping
+        // The 'end' event will handle sending the final transcript
         await ExpoSpeechRecognitionModule.stop();
         console.log('Stopped speech recognition');
       } else {
@@ -116,10 +188,14 @@ export default function HomeScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
+        // Clear previous transcript
+        setCurrentTranscript('');
+        finalTranscriptRef.current = '';
+
         await ExpoSpeechRecognitionModule.start({
           lang: 'en-US',
           interimResults: true, // Get partial results as user speaks
-          continuous: false, // Stop after first final result
+          continuous: true, // Keep recording until manually stopped
         });
 
         setIsRecording(true);
@@ -168,13 +244,13 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}>
 
           {/* Top Card */}
-          <GlassCard
+          <LiquidGlassView
             style={[
               styles.topCard,
               isRecording && styles.topCardGrayscaled
             ]}
-            intensity={20}
-            tint="light">
+            interactive
+            effect="clear">
             <View style={styles.topCardContent}>
               <Text
                 style={[
@@ -191,58 +267,75 @@ export default function HomeScreen() {
                 Great idea starts from{'\n'}just spitting it out
               </Text>
             </View>
-          </GlassCard>
+          </LiquidGlassView>
 
           {/* Projects Card */}
-          {/* <GlassCard
-            style={[
-              styles.projectsCard,
-              isRecording && styles.projectsCardGrayscaled
-            ]}
-            intensity={20}
-            tint="light"> */}
           <LiquidGlassView
             style={[
               styles.projectsCard,
-              isRecording && styles.projectsCardGrayscaled
+              (isRecording || isAnalyzing) && styles.projectsCardGrayscaled
             ]}
             interactive
             effect="clear">
             <ScrollView>
-              {SAMPLE_PROJECTS.map((project, index) => (
-                <View key={project.id}>
-                  {index > 0 && <View style={styles.divider} />}
-                  <View style={styles.projectItem}>
-                    <View style={[
-                      styles.avatarPlaceholder,
-                      isRecording && styles.grayscaledAvatar
-                    ]} />
-                    <View style={styles.projectInfo}>
-                      <Text
-                        style={[
-                          styles.projectTitle,
-                          isRecording && styles.grayscaledText
-                        ]}>
-                        {project.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.projectUser,
-                          isRecording && styles.grayscaledText
-                        ]}>
-                        {project.user}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.projectDescription,
-                          isRecording && styles.grayscaledText
-                        ]}>
-                        {project.description}
-                      </Text>
+              {isLoading && projects.length === 0 ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#fff" />
+                  <Text style={styles.loadingText}>Loading projects...</Text>
+                </View>
+              ) : projects.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    No projects yet.{'\n'}Your projects will appear here.
+                  </Text>
+                </View>
+              ) : (
+                projects.map((project, index) => (
+                  <View key={project.id}>
+                    {index > 0 && <View style={styles.divider} />}
+                    <View style={styles.projectItem}>
+                      <View style={[
+                        styles.avatarPlaceholder,
+                        (isRecording || isAnalyzing) && styles.grayscaledAvatar
+                      ]} />
+                      <View style={styles.projectInfo}>
+                        <Text
+                          style={[
+                            styles.projectTitle,
+                            (isRecording || isAnalyzing) && styles.grayscaledText
+                          ]}>
+                          {project.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.projectUser,
+                            (isRecording || isAnalyzing) && styles.grayscaledText
+                          ]}>
+                          {new Date(project.created_at).toLocaleDateString()}
+                        </Text>
+                        {project.description && (
+                          <Text
+                            style={[
+                              styles.projectDescription,
+                              (isRecording || isAnalyzing) && styles.grayscaledText
+                            ]}
+                            numberOfLines={6}
+                            ellipsizeMode="tail"
+                          >
+                            {project.description}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </View>
+                ))
+              )}
+              {isAnalyzing && (
+                <View style={styles.analyzingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.analyzingText}>Analyzing your idea...</Text>
                 </View>
-              ))}
+              )}
             </ScrollView>
           </LiquidGlassView>
         </ScrollView>
@@ -261,14 +354,22 @@ export default function HomeScreen() {
             {/* Voice Record Button */}
             <Pressable
               onPress={handleToggleRecord}
-              style={styles.recordButtonContainer}>
-              {isRecording ? (
+              disabled={isAnalyzing}
+              style={[
+                styles.recordButtonContainer,
+                isAnalyzing && styles.recordButtonDisabled
+              ]}>
+              {isRecording || isAnalyzing ? (
                 <LiquidGlassView
                   style={styles.recordButtonBlur}
                   interactive
                   effect="clear">
                   <View style={styles.recordButtonInner}>
-                    {/* <Ionicons name="mic" size={32} color="#666" /> */}
+                    {isAnalyzing ? (
+                      <ActivityIndicator size="large" color="#666" />
+                    ) : (
+                      <Ionicons name="mic" size={32} color="#666" />
+                    )}
                   </View>
                 </LiquidGlassView>
               ) : (
@@ -340,10 +441,10 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   topCard: {
+    paddingVertical: 20,
     borderRadius: 30,
     marginBottom: 16,
     overflow: 'hidden',
-    maxHeight: 200,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -365,15 +466,14 @@ const styles = StyleSheet.create({
   },
   topCardTitle: {
     fontSize: 40,
-    fontWeight: '200',
+    fontWeight: '100',
     color: '#999',
     textAlign: 'center',
     marginBottom: 12,
-    fontStyle: 'italic',
     letterSpacing: 0.5,
     fontFamily: defaultFontFamily,
     shadowColor: '#000',
-    textShadowOffset: { width: 0, height: 2 },
+    textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 4,
   },
   topCardSubtitle: {
@@ -383,7 +483,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
     fontFamily: defaultFontFamily,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    // backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 20,
     paddingVertical: 1,
     borderRadius: 10,
@@ -490,6 +590,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '70%',
   },
+  recordButtonDisabled: {
+    opacity: 0.6,
+  },
   recordButtonBlur: {
     width: 90,
     height: 90,
@@ -515,6 +618,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
     ...Platform.select({
       ios: {
         shadowColor: '#F5F5F5',
@@ -532,5 +637,54 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: defaultFontFamily,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    fontFamily: defaultFontFamily,
+    opacity: 0.7,
+  },
+  analyzingContainer: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  analyzingText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: defaultFontFamily,
+  },
+  priorityBadge: {
+    marginTop: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'flex-start',
+  },
+  priorityText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: defaultFontFamily,
+    fontWeight: '500',
   },
 });

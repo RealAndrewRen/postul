@@ -94,16 +94,26 @@ await init_db()
 - `GET /health` - Health check endpoint
 
 ### Ideas
-- `POST /api/v1/ideas/analyze` - Analyze a transcribed idea (requires authentication)
-- `GET /api/v1/ideas/{idea_id}` - Get a specific idea (requires authentication)
-- `GET /api/v1/ideas` - List ideas for the current user (requires authentication)
+- `POST /api/v1/ideas/analyze` - Analyze a transcribed idea (authentication optional)
+- `GET /api/v1/ideas/{idea_id}` - Get a specific idea (authentication optional)
+- `GET /api/v1/ideas` - List ideas for the current user (authentication optional)
 
 ### Authentication
 
-All protected endpoints require a Bearer token in the Authorization header:
-```
-Authorization: Bearer <supabase-jwt-token>
-```
+The API supports both authenticated and anonymous users:
+
+- **Authenticated users**: Include a Bearer token in the Authorization header:
+  ```
+  Authorization: Bearer <supabase-jwt-token>
+  ```
+  
+- **Anonymous users**: Omit the Authorization header. Anonymous users can:
+  - Create and analyze ideas
+  - View their own ideas (all anonymous users share the same session)
+  - Cannot associate ideas with projects
+  - Cannot filter by project
+  
+**Note**: For production, consider implementing session-based anonymous user IDs or requiring authentication for data persistence.
 
 ## Project Structure
 
