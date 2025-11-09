@@ -144,10 +144,20 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color="#444" />
+            <LiquidGlassView
+              style={styles.iconButton}
+              interactive
+              effect="clear">
+              <Ionicons name="arrow-back" size={24} color="#444" />
+            </LiquidGlassView>
           </Pressable>
           <Pressable style={styles.iconButton}>
-            <Ionicons name="settings" size={24} color="#444" />
+            <LiquidGlassView
+              style={styles.iconButton}
+              interactive
+              effect="clear">
+              <Ionicons name="settings" size={24} color="#444" />
+            </LiquidGlassView>
           </Pressable>
         </View>
 
@@ -178,7 +188,7 @@ export default function HomeScreen() {
                   styles.topCardSubtitle,
                   isRecording && styles.grayscaledText
                 ]}>
-                Great idea starts from{'\n'}spitting out
+                Great idea starts from{'\n'}just spitting it out
               </Text>
             </View>
           </GlassCard>
@@ -253,11 +263,14 @@ export default function HomeScreen() {
               onPress={handleToggleRecord}
               style={styles.recordButtonContainer}>
               {isRecording ? (
-                <BlurView intensity={70} tint="light" style={styles.recordButtonBlur}>
+                <LiquidGlassView
+                  style={styles.recordButtonBlur}
+                  interactive
+                  effect="clear">
                   <View style={styles.recordButtonInner}>
                     {/* <Ionicons name="mic" size={32} color="#666" /> */}
                   </View>
-                </BlurView>
+                </LiquidGlassView>
               ) : (
                 <LinearGradient
                   colors={['#FF4444', '#0066FF']}
@@ -265,9 +278,14 @@ export default function HomeScreen() {
                   end={{ x: 1, y: 1 }}
                   locations={[0, 1]}
                   style={styles.recordButtonGradient}>
-                  <View style={styles.recordButtonInner}>
-                    {/* <Ionicons name="mic" size={32} color="#FFF" /> */}
-                  </View>
+                  <LiquidGlassView
+                    style={[
+                      styles.recordButtonGradient,
+                      !isLiquidGlassSupported && { backgroundColor: 'rgba(255,255,255,0.5)' },
+                    ]}
+                    interactive
+                    effect="clear">
+                  </LiquidGlassView>
                 </LinearGradient>
               )}
             </Pressable>
@@ -299,9 +317,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -365,6 +383,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
     fontFamily: defaultFontFamily,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 1,
+    borderRadius: 10,
   },
   projectsCard: {
     borderRadius: 30,
@@ -469,23 +491,20 @@ const styles = StyleSheet.create({
     width: '70%',
   },
   recordButtonBlur: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.15,
-        shadowRadius: 28, // more blurry
+        shadowRadius: 36, // more blurry for larger button
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
