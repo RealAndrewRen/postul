@@ -1,10 +1,8 @@
 # RLHF Pipeline for Startup Advisor Chatbot
 
-**Purpose:** Add RLHF to improve the quality, appropriateness, and real-world utility of suggestions (idea validation, surveys, interview scripts, and market-demand analysis) produced by the startup-advisor chatbot.
-
 ---
 
-## 1) Executive summary
+## 1) Summary
 
 We will collect user feedback on generated suggestions, structure it, use it to train a reward model, then fine-tune or instruction-tune the base LM to maximize reward. The loop includes: **generation → user feedback (structured + optional pairwise comparisons) → reward model training → policy optimization (fine-tune or instruction-tune) → evaluation**.
 
@@ -201,11 +199,6 @@ We collect structured feedback for every generated suggestion unit (a suggestion
 * Net Promoter/CSAT for feature: average rating increase of +0.3/5.
 * Reduction in manual edits before sending to respondents: average edits per output reduced by 20%.
 
-**Safety & quality gates:**
-
-* No policy violations in top 1k outputs (manual audit).
-* Bias / leading question prevalence reduced by X% (compare baseline).
-
 **Success criteria (initial milestone — 3 months):**
 
 * Instrumentation capturing 5–10k feedback items.
@@ -219,16 +212,7 @@ We collect structured feedback for every generated suggestion unit (a suggestion
 
 ---
 
-## 9) Privacy, compliance, and annotation ethics
-
-* Only store anonymized user ids; provide opt-out toggles.
-* Mask or remove PII before sending outputs to labeling service.
-* Provide users a clear explanation of how feedback is used.
-* If using paid labelers, ensure proper consent and NDA.
-
----
-
-## 10) Infrastructure & infra checklist
+## 9) Infrastructure & infra checklist
 
 * Event collection pipeline (Kafka / Kinesis / serverless events) to log feedback JSON into a data lake (S3).
 * ETL job to validate JSON, strip PII, sample for human labeling.
@@ -238,111 +222,15 @@ We collect structured feedback for every generated suggestion unit (a suggestion
 
 ---
 
-## 11) Diagram (ASCII + editable Excalidraw instructions)
+## 10) Diagram (ASCII + editable Excalidraw instructions)
 
-### ASCII flow (compact)
+### ASCII flow
 
 ```
 User request -> LM generates outputs -> UI displays outputs -> User provides structured feedback (1-5, quick checks, free text) -> Feedback stored (JSON) -> ETL (PII removal, sampling) ->
 Human labeling & preference tasks -> Reward model training -> Supervised fine-tune / DPO on policy -> New LM deployed (canary) -> Online metrics + audits -> repeat
 ```
 
-### Excalidraw / draw.io instructions
+### Draw.io 
 
-* Canvas name: "rlhf_pipeline_startup_advisor"
-* Nodes: User, Frontend, Event Collector, Data Lake, ETL, Human Labeler, Reward Model Training, Policy Trainer (SFT/PPO/DPO), Model Registry, Canary Deployment, Monitoring/Audit.
-* Edges: as in ASCII flow. Include annotations: sample sizes, frequency of retrain, evaluation gates.
-
-(If you want I can export a draw.io XML or Excalidraw JSON in a follow-up.)
-
----
-
-## 12) PR & README edits (suggested commit)
-
-**Suggested branch name:** `feature/rlhf-feedback-pipeline`
-
-**Commit message:** `add RLHF pipeline doc, feedback schema, and onboarding steps`.
-
-**README additions (short blurb):**
-
-> ## RLHF feedback pipeline
->
-> We collect anonymized user feedback on generated validation plans and surveys. Feedback is logged as structured JSON (see `docs/rlhf_feedback_schema.json`) and used to train a reward model. The rewards drive supervised fine-tuning and preference-based optimization to improve the advice our advisor gives.
-
-Include link to the new doc in `docs/rlhf_pipeline.md`.
-
----
-
-## 13) Optional: Python scaffold to capture feedback (server-side)
-
-Place this on the backend (FastAPI example). This code is included below for convenience and is also in this repo's `scripts/` folder.
-
-```python
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
-from uuid import uuid4
-from datetime import datetime
-import json
-
-app = FastAPI()
-
-class Context(BaseModel):
-    product_idea: str
-    target_audience: str | None = None
-    goal: str | None = None
-    previous_tests: list[str] = []
-
-class Output(BaseModel):
-    type: str
-    content: str
-    tokens: int | None = None
-
-class Feedback(BaseModel):
-    rating: int
-    usefulness: int | None = None
-    clarity: int | None = None
-    bias_check: bool | None = None
-    would_follow: int | None = None
-    free_text: str | None = None
-
-class FeedbackItem(BaseModel):
-    user_id: str
-    app_version: str | None = None
-    context: Context
-    output: Output
-    source_model: str
-    feedback: Feedback
-
-
-@app.post('/api/feedback')
-async def receive_feedback(item: FeedbackItem, request: Request):
-    record = item.dict()
-    record['id'] = 'fb_' + uuid4().hex[:8]
-    record['timestamp'] = datetime.utcnow().isoformat() + 'Z'
-    # TODO: PII stripping here
-    with open('/data/feedback_log.jsonl','a') as f:
-        f.write(json.dumps(record) + '\n')
-    return {'status':'ok','id':record['id']}
-```
-
----
-
-## 14) Next steps & roadmap (first 90 days)
-
-1. Add feedback UI and backend endpoint; instrument 5–10k events target.
-2. Run prompt-instruction experiments A/B and measure usefulness lift.
-3. Create initial reward model training dataset (sample 1–2k items; run cross-val).
-4. Do SFT on high-rated examples; evaluate in canary.
-5. If reward model stable, run DPO and roll out best performing model.
-
----
-
-## 15) Appendix: labeling instructions for human annotators
-
-* Rate on usefulness (0–1) normalized; prefer objective signals (would you actually run this?)
-* Mark biased / leading question presence.
-* For pairwise tasks: pick the output you'd be more likely to follow; ignore length unless it materially changes quality.
-
----
-
-*Document created: `RLHF pipeline for Startup Advisor Chatbot`*
+![RLHF Pipeline](./docs/rlhf_pipeline.png)
