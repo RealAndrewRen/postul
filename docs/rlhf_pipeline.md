@@ -233,4 +233,4 @@ Human labeling & preference tasks -> Reward model training -> Supervised fine-tu
 
 ### Draw.io 
 
-![RLHF Pipeline](./docs/rlhf_pipeline.png)
+![RLHF Pipeline](./rlhf_pipeline.png)
