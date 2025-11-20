@@ -208,7 +208,7 @@ We collect structured feedback for every generated suggestion unit (a suggestion
 **Success criteria (6–9 months):**
 
 * Reward model ρ ≥ 0.65, pairwise ≥ 75%.
-* Fine-tuned model shows +10% click-through on „Use this plan" in A/B test.
+* Fine-tuned model shows +10% click-through on "Use this plan" in A/B test.
 
 ---
 
