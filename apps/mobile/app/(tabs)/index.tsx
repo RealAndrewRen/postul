@@ -9,6 +9,8 @@ import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar, S
 import { defaultFontFamily } from '@/constants/theme';
 import { apiService, Project } from '@/services/api';
 import { useRouter } from 'expo-router';
+import { ConversationListSidepanel } from '@/components/conversation-list-sidepanel';
+import { SettingsPanel } from '@/components/settings-panel';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -18,6 +20,8 @@ export default function HomeScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const finalTranscriptRef = useRef<string>('');
+  const [isSidepanelVisible, setIsSidepanelVisible] = useState(false);
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
 
   // Listen to speech recognition events
   useSpeechRecognitionEvent('start', () => {
@@ -229,15 +233,29 @@ export default function HomeScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <Pressable style={styles.iconButton}>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => {
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              setIsSidepanelVisible(true);
+            }}>
             <LiquidGlassView
               style={styles.iconButton}
               interactive
               effect="clear">
-              <Ionicons name="arrow-back" size={24} color="#444" />
+              <Ionicons name="menu-outline" size={24} color="#444" />
             </LiquidGlassView>
           </Pressable>
-          <Pressable style={styles.iconButton}>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => {
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              setIsSettingsVisible(true);
+            }}>
             <LiquidGlassView
               style={styles.iconButton}
               interactive
@@ -401,11 +419,24 @@ export default function HomeScreen() {
                 if (Platform.OS === 'ios') {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 }
+                setIsSidepanelVisible(true);
               }}>
               <Ionicons name="list-outline" size={24} color="#666" />
             </Pressable>
           </LiquidGlassView>
         </View>
+
+        {/* Conversation List Sidepanel */}
+        <ConversationListSidepanel
+          visible={isSidepanelVisible}
+          onClose={() => setIsSidepanelVisible(false)}
+        />
+
+        {/* Settings Panel */}
+        <SettingsPanel
+          visible={isSettingsVisible}
+          onClose={() => setIsSettingsVisible(false)}
+        />
       </LinearGradient>
     </View>
   );
