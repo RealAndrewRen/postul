@@ -1,4 +1,4 @@
-import { isLiquidGlassSupported, LiquidGlassView } from '@callstack/liquid-glass';
+import { LiquidGlassView } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,8 +8,10 @@ import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar, S
 
 import { defaultFontFamily } from '@/constants/theme';
 import { apiService, Project } from '@/services/api';
+import { useRouter } from 'expo-router';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [isRecording, setIsRecording] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -138,20 +140,28 @@ export default function HomeScreen() {
       setIsAnalyzing(true);
       console.log('Analyzing idea:', transcribedText);
 
-      const response = await apiService.analyzeIdea({
+      // Step 1: Generate project details and create project first
+      const projectDetailsResponse = await apiService.generateProjectDetails({
         transcribed_text: transcribedText,
       });
 
-      console.log('Analysis response:', response);
+      const project = await apiService.createProject({
+        name: projectDetailsResponse.name,
+        description: projectDetailsResponse.description,
+      });
 
-      // Refresh projects list (in case the idea was associated with a project)
-      await fetchProjects();
+      console.log('Created project:', project);
 
-      // Show success message
-      Alert.alert(
-        'Success',
-        'Your idea has been analyzed!',
-      );
+      // Step 2: Analyze idea with project_id to link them
+      const analysisResponse = await apiService.analyzeIdea({
+        transcribed_text: transcribedText,
+        project_id: project.id,
+      });
+
+      console.log('Analysis response:', analysisResponse);
+
+      // Navigate to project detail screen
+      router.push(`/project/${project.id}` as any);
     } catch (error: any) {
       console.error('Error analyzing idea:', error);
       Alert.alert(
@@ -293,7 +303,17 @@ export default function HomeScreen() {
                 projects.map((project, index) => (
                   <View key={project.id}>
                     {index > 0 && <View style={styles.divider} />}
-                    <View style={styles.projectItem}>
+                    <Pressable
+                      style={styles.projectItem}
+                      onPress={() => {
+                        if (!isRecording && !isAnalyzing) {
+                          if (Platform.OS === 'ios') {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }
+                          router.push(`/project/${project.id}` as any);
+                        }
+                      }}
+                      disabled={isRecording || isAnalyzing}>
                       <View style={[
                         styles.avatarPlaceholder,
                         (isRecording || isAnalyzing) && styles.grayscaledAvatar
@@ -326,7 +346,7 @@ export default function HomeScreen() {
                           </Text>
                         )}
                       </View>
-                    </View>
+                    </Pressable>
                   </View>
                 ))
               )}
@@ -342,56 +362,49 @@ export default function HomeScreen() {
 
         {/* Bottom Navigation */}
         <View style={styles.bottomNavContainer}>
-          {/* <BlurView intensity={50} tint="light" style={styles.bottomNav}> */}
-          <LiquidGlassView
-            style={[
-              styles.bottomNav,
-              !isLiquidGlassSupported && { backgroundColor: 'rgba(255,255,255,0.5)' },
-            ]}
-            interactive
-            effect="clear">
-
-            {/* Voice Record Button */}
+          <LiquidGlassView style={styles.bottomNav} interactive effect="clear">
             <Pressable
+              style={styles.bottomNavIcon}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}>
+              <Ionicons name="keypad-outline" size={24} color="#666" />
+            </Pressable>
+            <Pressable
+              style={styles.bottomNavCenter}
               onPress={handleToggleRecord}
-              disabled={isAnalyzing}
-              style={[
-                styles.recordButtonContainer,
-                isAnalyzing && styles.recordButtonDisabled
-              ]}>
+              disabled={isAnalyzing}>
               {isRecording || isAnalyzing ? (
-                <LiquidGlassView
-                  style={styles.recordButtonBlur}
-                  interactive
-                  effect="clear">
-                  <View style={styles.recordButtonInner}>
-                    {isAnalyzing ? (
-                      <ActivityIndicator size="large" color="#666" />
-                    ) : (
-                      <Ionicons name="mic" size={32} color="#666" />
-                    )}
-                  </View>
+                <LiquidGlassView style={styles.bottomNavCenterInner} interactive effect="clear">
+                  {isAnalyzing ? (
+                    <ActivityIndicator size="small" color="#666" />
+                  ) : (
+                    <Ionicons name="mic" size={24} color="#666" />
+                  )}
                 </LiquidGlassView>
               ) : (
                 <LinearGradient
                   colors={['#FF4444', '#0066FF']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  locations={[0, 1]}
-                  style={styles.recordButtonGradient}>
-                  <LiquidGlassView
-                    style={[
-                      styles.recordButtonGradient,
-                      !isLiquidGlassSupported && { backgroundColor: 'rgba(255,255,255,0.5)' },
-                    ]}
-                    interactive
-                    effect="clear">
+                  style={styles.bottomNavCenterGradient}>
+                  <LiquidGlassView style={styles.bottomNavCenterInner} interactive effect="clear">
                   </LiquidGlassView>
                 </LinearGradient>
               )}
             </Pressable>
+            <Pressable
+              style={styles.bottomNavIcon}
+              onPress={() => {
+                if (Platform.OS === 'ios') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+              }}>
+              <Ionicons name="list-outline" size={24} color="#666" />
+            </Pressable>
           </LiquidGlassView>
-          {/* </BlurView> */}
         </View>
       </LinearGradient>
     </View>
@@ -568,11 +581,11 @@ const styles = StyleSheet.create({
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 50,
-    paddingVertical: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 30,
+    paddingVertical: 16,
     borderRadius: 50,
-    overflow: 'hidden',
+    minWidth: '80%',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -585,56 +598,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  recordButtonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '70%',
-  },
-  recordButtonDisabled: {
-    opacity: 0.6,
-  },
-  recordButtonBlur: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+  bottomNavIcon: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.15,
-        shadowRadius: 36, // more blurry for larger button
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
   },
-  recordButtonGradient: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#F5F5F5',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 18,
-      },
-    }),
+  bottomNavCenter: {
+    width: 60,
+    height: 60,
   },
-  recordButtonInner: {
+  bottomNavCenterGradient: {
     width: '100%',
     height: '100%',
+    borderRadius: 30,
+    padding: 2,
+  },
+  bottomNavCenterInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },

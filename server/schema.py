@@ -37,6 +37,13 @@ class IdeaAnalysisRequest(BaseModel):
     project_id: Optional[int] = Field(None, description="Optional project ID to associate the idea with")
 
 
+class Source(BaseModel):
+    """Source model for research references."""
+    title: str = Field(..., description="Source title")
+    url: str = Field(..., description="Source URL")
+    checked: bool = Field(default=False, description="Whether the source has been reviewed")
+
+
 class IdeaAnalysis(BaseModel):
     """Analysis model containing AI-generated insights."""
     problem_statement: str = Field(..., description="Clear problem statement")
@@ -49,18 +56,31 @@ class IdeaAnalysis(BaseModel):
     validation_priority: str = Field(default="Medium", description="Validation priority level")
 
 
+class ExtendedIdeaAnalysis(IdeaAnalysis):
+    """Extended analysis model with scores and sources."""
+    saturation_score: float = Field(default=0, ge=0, le=10, description="Market saturation score (0-10)")
+    juicy_score: float = Field(default=0, ge=0, le=10, description="Idea potential/juiciness score (0-10)")
+    sources: List[Source] = Field(default_factory=list, description="Research sources and references")
+
+
 class IdeaResponse(BaseModel):
     """Response model for idea analysis."""
     id: int
     user_id: str
     project_id: Optional[int]
     transcribed_text: str
-    analysis: IdeaAnalysis
+    analysis: ExtendedIdeaAnalysis
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
+
+
+class ProjectCreateRequest(BaseModel):
+    """Request model for creating a new project."""
+    name: str = Field(..., min_length=1, max_length=255, description="Project name")
+    description: Optional[str] = Field(None, description="Project description")
 
 
 class ProjectResponse(BaseModel):

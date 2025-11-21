@@ -3,8 +3,11 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey, text
 from datetime import datetime
 from typing import AsyncGenerator
+import logging
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # Base class for declarative models
@@ -26,9 +29,6 @@ def get_async_database_url(database_url: str) -> str:
 
 
 # Database engine
-import logging
-
-logger = logging.getLogger(__name__)
 
 try:
     async_database_url = get_async_database_url(settings.database_url)
@@ -122,9 +122,6 @@ async def init_db():
         logger.info("Database tables initialized successfully")
     except Exception as e:
         # Log error with more details
-        import logging
-
-        logger = logging.getLogger(__name__)
         error_msg = str(e)
         if "nodename nor servname provided" in error_msg or "could not translate hostname" in error_msg.lower() or "Name or service not known" in error_msg:
             logger.error(

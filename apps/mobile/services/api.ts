@@ -1,5 +1,11 @@
 import { getApiUrl } from '@/constants/api';
 
+export interface Source {
+  title: string;
+  url: string;
+  checked: boolean;
+}
+
 export interface IdeaAnalysis {
   problem_statement: string;
   summary: string;
@@ -9,6 +15,9 @@ export interface IdeaAnalysis {
   threats: string;
   actionable_items: string[];
   validation_priority: string;
+  saturation_score: number;
+  juicy_score: number;
+  sources: Source[];
 }
 
 export interface Idea {
@@ -35,6 +44,20 @@ export interface Project {
   description: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProjectCreateRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface GenerateProjectDetailsRequest {
+  transcribed_text: string;
+}
+
+export interface ProjectDetailsResponse {
+  name: string;
+  description: string;
 }
 
 class ApiService {
@@ -104,6 +127,20 @@ class ApiService {
 
   async getProject(projectId: number): Promise<Project> {
     return this.request<Project>(`/api/v1/projects/${projectId}`);
+  }
+
+  async createProject(data: ProjectCreateRequest): Promise<Project> {
+    return this.request<Project>('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateProjectDetails(data: GenerateProjectDetailsRequest): Promise<ProjectDetailsResponse> {
+    return this.request<ProjectDetailsResponse>('/api/v1/projects/generate-details', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async healthCheck(): Promise<{ status: string; message: string }> {

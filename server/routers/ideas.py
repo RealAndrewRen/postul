@@ -3,10 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 import logging
-import json
 
 from database import get_db, Idea, Project
-from schema import IdeaAnalysisRequest, IdeaResponse, IdeaAnalysis
+from schema import IdeaAnalysisRequest, IdeaResponse, ExtendedIdeaAnalysis
 from services.ai_service import ai_service
 from dependencies import OptionalCurrentUser, get_user_id_or_anonymous
 
@@ -37,13 +36,8 @@ async def analyze_idea(
         # Get user ID (authenticated or anonymous)
         user_id = get_user_id_or_anonymous(optional_user_id)
         
-        # Validate project_id if provided (only for authenticated users)
+        # Validate project_id if provided
         if request.project_id:
-            if not optional_user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Project association requires authentication. Please provide a valid token."
-                )
             result = await db.execute(
                 select(Project).where(
                     Project.id == request.project_id,
@@ -60,22 +54,22 @@ async def analyze_idea(
         # Generate AI analysis
         user_type = "authenticated" if optional_user_id else "anonymous"
         logger.info(f"Generating analysis for {user_type} user {user_id}")
-        analysis_data = await ai_service.analyze_idea(request.transcribed_text)
+        analysis = await ai_service.analyze_idea(request.transcribed_text)
+        
+        # Convert ExtendedIdeaAnalysis to dict for JSON storage
+        analysis_dict = analysis.model_dump()
         
         # Create idea record in database
         idea = Idea(
             user_id=user_id,
-            project_id=request.project_id if optional_user_id else None,  # Only set project_id for authenticated users
+            project_id=request.project_id,  # Allow project_id for both authenticated and anonymous users
             transcribed_text=request.transcribed_text,
-            analysis_json=analysis_data,
+            analysis_json=analysis_dict,
         )
         
         db.add(idea)
         await db.flush()  # Flush to get the ID
         await db.refresh(idea)
-        
-        # Convert analysis_json to IdeaAnalysis model
-        analysis = IdeaAnalysis(**analysis_data)
         
         # Build response
         response = IdeaResponse(
@@ -136,8 +130,8 @@ async def get_idea(
             detail=f"Idea with id {idea_id} not found"
         )
     
-    # Convert analysis_json to IdeaAnalysis model
-    analysis = IdeaAnalysis(**idea.analysis_json)
+    # Convert analysis_json to ExtendedIdeaAnalysis model
+    analysis = ExtendedIdeaAnalysis(**idea.analysis_json)
     
     return IdeaResponse(
         id=idea.id,
@@ -177,13 +171,8 @@ async def list_ideas(
     
     query = select(Idea).where(Idea.user_id == user_id)
     
-    # Project filtering only for authenticated users
+    # Project filtering for both authenticated and anonymous users
     if project_id:
-        if not optional_user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Project filtering requires authentication. Please provide a valid token."
-            )
         query = query.where(Idea.project_id == project_id)
     
     query = query.order_by(Idea.created_at.desc()).limit(limit).offset(offset)
@@ -193,7 +182,7 @@ async def list_ideas(
     
     responses = []
     for idea in ideas:
-        analysis = IdeaAnalysis(**idea.analysis_json)
+        analysis = ExtendedIdeaAnalysis(**idea.analysis_json)
         responses.append(
             IdeaResponse(
                 id=idea.id,
@@ -207,4 +196,74 @@ async def list_ideas(
         )
     
     return responses
+
+
+@router.patch("/{idea_id}", response_model=IdeaResponse)
+async def update_idea(
+    idea_id: int,
+    project_id: Optional[int] = None,
+    optional_user_id: OptionalCurrentUser = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update an idea, primarily to associate it with a project.
+    Works for both authenticated and anonymous users.
+    
+    Args:
+        idea_id: Idea ID to update
+        project_id: Optional project ID to associate the idea with
+        optional_user_id: Optional authenticated user ID (None for anonymous users)
+        db: Database session
+        
+    Returns:
+        Updated IdeaResponse
+    """
+    user_id = get_user_id_or_anonymous(optional_user_id)
+    
+    # Get the idea
+    result = await db.execute(
+        select(Idea).where(
+            Idea.id == idea_id,
+            Idea.user_id == user_id
+        )
+    )
+    idea = result.scalar_one_or_none()
+    
+    if not idea:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Idea with id {idea_id} not found"
+        )
+    
+    # Validate project_id if provided
+    if project_id is not None:
+        project_result = await db.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.user_id == user_id
+            )
+        )
+        project = project_result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Project with id {project_id} not found"
+            )
+        idea.project_id = project_id
+    
+    await db.flush()
+    await db.refresh(idea)
+    
+    # Convert analysis_json to ExtendedIdeaAnalysis model
+    analysis = ExtendedIdeaAnalysis(**idea.analysis_json)
+    
+    return IdeaResponse(
+        id=idea.id,
+        user_id=idea.user_id,
+        project_id=idea.project_id,
+        transcribed_text=idea.transcribed_text,
+        analysis=analysis,
+        created_at=idea.created_at,
+        updated_at=idea.updated_at,
+    )
 
