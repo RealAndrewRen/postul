@@ -101,3 +101,22 @@ class HealthResponse(BaseModel):
     status: str
     message: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TikiTakaMessage(BaseModel):
+    """Single message in a tiki-taka conversation."""
+    role: str = Field(..., description="Message role: 'user' or 'assistant'")
+    content: str = Field(..., description="Message content")
+
+
+class TikiTakaRequest(BaseModel):
+    """Request model for tiki-taka conversation."""
+    transcribed_text: str = Field(..., min_length=1, description="User's transcribed voice input")
+    conversation_history: List[TikiTakaMessage] = Field(default_factory=list, description="Previous conversation messages for context")
+    idea_context: Optional[str] = Field(None, description="Optional initial idea context if this is the start of a conversation")
+
+
+class TikiTakaResponse(BaseModel):
+    """Response model for tiki-taka conversation."""
+    advisor_message: str = Field(..., description="Advisor's response to help user think through their idea")
+    conversation_history: List[TikiTakaMessage] = Field(..., description="Updated conversation history including the new exchange")

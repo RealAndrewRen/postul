@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 import logging
 import json
 
@@ -134,6 +134,88 @@ Be constructive, specific, and actionable in your feedback."""
             juicy_score=5.0,
             sources=[],
         )
+
+    async def tiki_taka_conversation(
+        self, 
+        transcribed_text: str, 
+        conversation_history: list[Dict[str, str]] = None,
+        idea_context: str = None
+    ) -> str:
+        """
+        Generate an advisor response for tiki-taka conversation mode.
+        Acts as a thoughtful advisor to help users think through their ideas.
+
+        Args:
+            transcribed_text: The user's current transcribed voice input
+            conversation_history: Previous conversation messages (list of dicts with 'role' and 'content')
+            idea_context: Optional initial idea context if this is the start of a conversation
+
+        Returns:
+            Advisor's response text
+        """
+        # Build conversation messages
+        messages = []
+        
+        # System prompt for advisor role
+        system_prompt = """You are a thoughtful startup advisor and innovation consultant. Your role is to help users think through their startup ideas through Socratic questioning and gentle guidance.
+
+Key principles:
+- Ask thoughtful questions that help users discover insights themselves
+- Don't provide direct answers or analysis - guide them to think deeper
+- Be encouraging and supportive, but also help them identify potential blind spots
+- Focus on problem validation, market understanding, and critical assumptions
+- Keep responses concise (2-4 sentences) - this is a back-and-forth conversation
+- Use a conversational, friendly tone
+- Help users explore different angles of their idea
+- If they're stuck, offer gentle prompts or suggest areas to consider
+
+Your goal is to help users think critically about their idea, not to analyze it for them."""
+        
+        messages.append({"role": "system", "content": system_prompt})
+        
+        # Add initial idea context if this is the start of a conversation
+        if idea_context and (not conversation_history or len(conversation_history) == 0):
+            messages.append({
+                "role": "user", 
+                "content": f"I have an idea: {idea_context}"
+            })
+            # Add a first advisor response if we have context
+            if conversation_history is None:
+                conversation_history = []
+        
+        # Add conversation history
+        if conversation_history:
+            for msg in conversation_history:
+                # Ensure we have the right format
+                if isinstance(msg, dict):
+                    messages.append({
+                        "role": msg.get("role", "user"),
+                        "content": msg.get("content", "")
+                    })
+        
+        # Add current user message
+        messages.append({
+            "role": "user",
+            "content": transcribed_text
+        })
+        
+        try:
+            # Use chat completion API for conversation
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.8,  # Slightly higher for more natural conversation
+                max_tokens=300,  # Keep responses concise
+            )
+            
+            advisor_message = response.choices[0].message.content.strip()
+            logger.info(f"Generated tiki-taka advisor response (length: {len(advisor_message)})")
+            return advisor_message
+            
+        except Exception as e:
+            logger.error(f"Error generating tiki-taka conversation: {e}", exc_info=True)
+            # Return a fallback response
+            return "That's an interesting thought! Can you tell me more about what problem you're trying to solve with this idea?"
 
     async def generate_project_details(self, transcribed_text: str) -> Dict[str, str]:
         """
