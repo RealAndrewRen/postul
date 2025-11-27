@@ -45,13 +45,13 @@ export function BottomNavigation({
                 <Pressable
                     style={styles.centerButton}
                     onPress={onRecordPress}
-                    disabled={disabled || isAnalyzing}>
+                    disabled={isAnalyzing}>
                     {isRecording || isAnalyzing ? (
                         <LiquidGlassView style={styles.centerButtonInner} interactive effect="clear">
                             {isAnalyzing ? (
                                 <ActivityIndicator size="small" color="#666" />
                             ) : (
-                                <Ionicons name="mic" size={24} color="#666" />
+                                <Ionicons name="stop-outline" size={24} color="red" />
                             )}
                         </LiquidGlassView>
                     ) : (

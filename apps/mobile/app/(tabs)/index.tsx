@@ -41,9 +41,7 @@ export default function HomeScreen() {
     if (results && results.length > 0) {
       // Build complete transcript from all results
       // The results array contains all transcript parts so far
-      const fullTranscript = results
-        .map((result: any) => result.transcript)
-        .join(' ')
+      const fullTranscript = results[results.length - 1].transcript
         .trim();
 
       console.log('Speech recognition result:', {
@@ -198,6 +196,7 @@ export default function HomeScreen() {
         // Clear transcripts before stopping
         // The 'end' event will handle sending the final transcript
         await ExpoSpeechRecognitionModule.stop();
+        setIsRecording(false); // Immediately update state to reflect stopped state
         console.log('Stopped speech recognition');
       } else {
         // Start recognition
@@ -382,6 +381,15 @@ export default function HomeScreen() {
           </LiquidGlassView>
         </ScrollView>
 
+        {/* Transcript Display - Shown during recording and analyzing */}
+        {(isRecording || isAnalyzing) && currentTranscript.length > 0 && (
+          <View style={styles.transcriptContainer}>
+            <LiquidGlassView style={styles.transcriptCard} interactive effect="clear">
+              <Text style={styles.transcriptText}>{currentTranscript}</Text>
+            </LiquidGlassView>
+          </View>
+        )}
+
         {/* Bottom Navigation */}
         <BottomNavigation
           conversationMode={conversationMode}
@@ -390,7 +398,7 @@ export default function HomeScreen() {
           onListPress={() => setIsSidepanelVisible(true)}
           isRecording={isRecording}
           isAnalyzing={isAnalyzing}
-          disabled={isRecording || isAnalyzing}
+          disabled={isAnalyzing}
         />
 
         {/* Conversation List Sidepanel */}
@@ -627,5 +635,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: defaultFontFamily,
     fontWeight: '500',
+  },
+  transcriptContainer: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 130 : 110,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    alignItems: 'flex-end',
+  },
+  transcriptCard: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 20,
+    maxWidth: '70%',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  transcriptText: {
+    color: '#333',
+    fontSize: 14,
+    fontFamily: defaultFontFamily,
+    fontWeight: '400',
+    lineHeight: 20,
+    textAlign: 'left',
   },
 });
