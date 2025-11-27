@@ -1,13 +1,14 @@
 import { LiquidGlassView } from '@callstack/liquid-glass';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 
 import { defaultFontFamily } from '@/constants/theme';
-import { apiService, Project } from '@/services/api';
+import { apiService, Project, TikiTakaMessage } from '@/services/api';
 import { useRouter } from 'expo-router';
 import { ConversationListSidepanel } from '@/components/conversation-list-sidepanel';
 import { SettingsPanel } from '@/components/settings-panel';
@@ -26,6 +27,10 @@ export default function HomeScreen() {
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [conversationMode, setConversationMode] = useState<'single-turn' | 'tiki-taka'>('single-turn');
   const [isModeSheetVisible, setIsModeSheetVisible] = useState(false);
+  const [tikiTakaHistory, setTikiTakaHistory] = useState<TikiTakaMessage[]>([]);
+  const [initialIdeaContext, setInitialIdeaContext] = useState<string | null>(null);
+  const [isWaitingForAdvisor, setIsWaitingForAdvisor] = useState(false);
+  const tikiTakaScrollViewRef = useRef<ScrollView>(null);
 
   // Listen to speech recognition events
   useSpeechRecognitionEvent('start', () => {
@@ -84,7 +89,11 @@ export default function HomeScreen() {
 
     // Send transcript to server for analysis if we have content
     if (transcript.length > 0) {
-      await analyzeIdea(transcript);
+      if (conversationMode === 'tiki-taka') {
+        await handleTikiTakaConversation(transcript);
+      } else {
+        await analyzeIdea(transcript);
+      }
     } else {
       console.log('No transcript to send');
     }
@@ -173,6 +182,121 @@ export default function HomeScreen() {
       Alert.alert(
         'Error',
         error.message || 'Failed to analyze idea. Please try again.',
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleTikiTakaConversation = async (transcribedText: string) => {
+    try {
+      setIsWaitingForAdvisor(true);
+      console.log('Tiki-taka conversation:', transcribedText);
+
+      // If this is the first message, store it as initial context
+      if (tikiTakaHistory.length === 0 && !initialIdeaContext) {
+        setInitialIdeaContext(transcribedText);
+      }
+
+      // Call tiki-taka endpoint
+      const response = await apiService.tikiTakaConversation({
+        transcribed_text: transcribedText,
+        conversation_history: tikiTakaHistory,
+        idea_context: initialIdeaContext,
+      });
+
+      console.log('Tiki-taka response:', response);
+
+      // Update conversation history
+      setTikiTakaHistory(response.conversation_history);
+      
+      // Scroll to bottom after a short delay to ensure the new message is rendered
+      setTimeout(() => {
+        tikiTakaScrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    } catch (error: any) {
+      console.error('Error in tiki-taka conversation:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to get advisor response. Please try again.',
+      );
+    } finally {
+      setIsWaitingForAdvisor(false);
+    }
+  };
+
+  // Reset conversation when switching modes
+  useEffect(() => {
+    if (conversationMode === 'single-turn') {
+      setTikiTakaHistory([]);
+      setInitialIdeaContext(null);
+    }
+  }, [conversationMode]);
+
+  const clearTikiTakaConversation = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setTikiTakaHistory([]);
+    setInitialIdeaContext(null);
+  };
+
+  const submitTikiTakaConversation = async () => {
+    if (tikiTakaHistory.length === 0) {
+      return;
+    }
+
+    try {
+      setIsAnalyzing(true);
+      
+      // Combine all user messages from the conversation into a comprehensive idea text
+      const userMessages = tikiTakaHistory
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content)
+        .join(' ');
+      
+      // Also include advisor messages for context (optional, but helpful)
+      const advisorMessages = tikiTakaHistory
+        .filter(msg => msg.role === 'assistant')
+        .map(msg => msg.content)
+        .join(' ');
+      
+      // Create a comprehensive idea description combining the conversation
+      const comprehensiveIdea = userMessages + (advisorMessages ? `\n\nContext from conversation: ${advisorMessages}` : '');
+      
+      console.log('Submitting tiki-taka conversation for analysis:', comprehensiveIdea);
+
+      // Step 1: Generate project details and create project first
+      const projectDetailsResponse = await apiService.generateProjectDetails({
+        transcribed_text: comprehensiveIdea,
+      });
+
+      const project = await apiService.createProject({
+        name: projectDetailsResponse.name,
+        description: projectDetailsResponse.description,
+      });
+
+      console.log('Created project:', project);
+
+      // Step 2: Analyze idea with project_id to link them
+      const analysisResponse = await apiService.analyzeIdea({
+        transcribed_text: comprehensiveIdea,
+        project_id: project.id,
+      });
+
+      console.log('Analysis response:', analysisResponse);
+
+      // Clear conversation history
+      setTikiTakaHistory([]);
+      setInitialIdeaContext(null);
+
+      // Navigate to project detail screen
+      router.push(`/project/${project.id}` as any);
+    } catch (error: any) {
+      console.error('Error submitting tiki-taka conversation:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to analyze conversation. Please try again.',
       );
     } finally {
       setIsAnalyzing(false);
@@ -371,7 +495,7 @@ export default function HomeScreen() {
                   </View>
                 ))
               )}
-              {isAnalyzing && (
+              {isAnalyzing && conversationMode === 'single-turn' && (
                 <View style={styles.analyzingContainer}>
                   <ActivityIndicator size="small" color="#fff" />
                   <Text style={styles.analyzingText}>Analyzing your idea...</Text>
@@ -381,8 +505,81 @@ export default function HomeScreen() {
           </LiquidGlassView>
         </ScrollView>
 
+        {/* Tiki-Taka Conversation Display */}
+        {conversationMode === 'tiki-taka' && tikiTakaHistory.length > 0 && (
+          <>
+            {/* Blurred Backdrop */}
+            <BlurView intensity={20} style={styles.tikiTakaBackdrop} />
+            
+            {/* Conversation Container */}
+            <View style={styles.tikiTakaContainer}>
+              {/* Header */}
+              <View style={styles.tikiTakaHeader}>
+                <View style={styles.tikiTakaHeaderLeft}>
+                  <Text style={styles.tikiTakaHeaderTitle}>Tiki-Taka</Text>
+                  <Text style={styles.tikiTakaHeaderSubtitle}>Conversation Mode</Text>
+                </View>
+                <Pressable
+                  style={styles.tikiTakaCloseButton}
+                  onPress={clearTikiTakaConversation}>
+                  <LiquidGlassView
+                    style={styles.tikiTakaCloseButtonInner}
+                    interactive
+                    effect="clear">
+                    <Ionicons name="close" size={20} color="#666" />
+                  </LiquidGlassView>
+                </Pressable>
+              </View>
+
+              {/* Messages */}
+              <ScrollView 
+                ref={tikiTakaScrollViewRef}
+                style={styles.tikiTakaScrollView}
+                contentContainerStyle={styles.tikiTakaScrollContent}
+                showsVerticalScrollIndicator={false}
+                onContentSizeChange={() => {
+                  tikiTakaScrollViewRef.current?.scrollToEnd({ animated: true });
+                }}>
+                {tikiTakaHistory.map((message, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.tikiTakaMessageContainer,
+                      message.role === 'user' ? styles.userMessageContainer : styles.advisorMessageContainer,
+                    ]}>
+                    <LiquidGlassView 
+                      style={[
+                        styles.tikiTakaMessageCard,
+                        message.role === 'user' ? styles.userMessageCard : styles.advisorMessageCard,
+                      ]} 
+                      interactive 
+                      effect="clear">
+                      <Text style={[
+                        styles.tikiTakaMessageText,
+                        message.role === 'user' ? styles.userMessageText : styles.advisorMessageText,
+                      ]}>
+                        {message.content}
+                      </Text>
+                    </LiquidGlassView>
+                  </View>
+                ))}
+                {isWaitingForAdvisor && (
+                  <View style={styles.advisorMessageContainer}>
+                    <LiquidGlassView style={styles.advisorMessageCard} interactive effect="clear">
+                      <View style={styles.thinkingIndicator}>
+                        <ActivityIndicator size="small" color="#666" />
+                        <Text style={styles.thinkingText}>Thinking...</Text>
+                      </View>
+                    </LiquidGlassView>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </>
+        )}
+
         {/* Transcript Display - Shown during recording and analyzing */}
-        {(isRecording || isAnalyzing) && currentTranscript.length > 0 && (
+        {(isRecording || isAnalyzing || isWaitingForAdvisor) && currentTranscript.length > 0 && (
           <View style={styles.transcriptContainer}>
             <LiquidGlassView style={styles.transcriptCard} interactive effect="clear">
               <Text style={styles.transcriptText}>{currentTranscript}</Text>
@@ -396,9 +593,11 @@ export default function HomeScreen() {
           onModeSwitchPress={() => setIsModeSheetVisible(true)}
           onRecordPress={handleToggleRecord}
           onListPress={() => setIsSidepanelVisible(true)}
+          onSubmitPress={submitTikiTakaConversation}
           isRecording={isRecording}
-          isAnalyzing={isAnalyzing}
-          disabled={isAnalyzing}
+          isAnalyzing={isAnalyzing || isWaitingForAdvisor}
+          disabled={isAnalyzing || isWaitingForAdvisor}
+          showSubmitButton={conversationMode === 'tiki-taka' && tikiTakaHistory.length > 0}
         />
 
         {/* Conversation List Sidepanel */}
@@ -421,6 +620,11 @@ export default function HomeScreen() {
           onSelectMode={(mode) => {
             setConversationMode(mode);
             setIsModeSheetVisible(false);
+            // Reset conversation when switching modes
+            if (mode === 'single-turn') {
+              setTikiTakaHistory([]);
+              setInitialIdeaContext(null);
+            }
           }}
         />
       </LinearGradient>
@@ -669,5 +873,126 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 20,
     textAlign: 'left',
+  },
+  tikiTakaBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  tikiTakaContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 100 : 80,
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 130 : 110,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  tikiTakaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  tikiTakaHeaderLeft: {
+    flex: 1,
+  },
+  tikiTakaHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    fontFamily: defaultFontFamily,
+    marginBottom: 2,
+  },
+  tikiTakaHeaderSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#666',
+    fontFamily: defaultFontFamily,
+  },
+  tikiTakaCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tikiTakaCloseButtonInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  tikiTakaScrollView: {
+    flex: 1,
+  },
+  tikiTakaScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingVertical: 12,
+    gap: 12,
+  },
+  tikiTakaMessageContainer: {
+    marginBottom: 4,
+  },
+  userMessageContainer: {
+    alignItems: 'flex-end',
+  },
+  advisorMessageContainer: {
+    alignItems: 'flex-start',
+  },
+  tikiTakaMessageCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    maxWidth: '75%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  userMessageCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  advisorMessageCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tikiTakaMessageText: {
+    fontSize: 14,
+    fontFamily: defaultFontFamily,
+    fontWeight: '400',
+    lineHeight: 20,
+  },
+  userMessageText: {
+    color: '#333',
+    textAlign: 'right',
+  },
+  advisorMessageText: {
+    color: '#444',
+    textAlign: 'left',
+  },
+  thinkingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  thinkingText: {
+    color: '#666',
+    fontSize: 14,
+    fontFamily: defaultFontFamily,
+    fontStyle: 'italic',
   },
 });

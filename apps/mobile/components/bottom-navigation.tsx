@@ -12,9 +12,11 @@ interface BottomNavigationProps {
     onRecordPress?: () => void;
     onListPress?: () => void;
     onKeypadPress?: () => void;
+    onSubmitPress?: () => void;
     isRecording?: boolean;
     isAnalyzing?: boolean;
     disabled?: boolean;
+    showSubmitButton?: boolean;
 }
 
 export function BottomNavigation({
@@ -23,24 +25,48 @@ export function BottomNavigation({
     onRecordPress,
     onListPress,
     onKeypadPress,
+    onSubmitPress,
     isRecording = false,
     isAnalyzing = false,
     disabled = false,
+    showSubmitButton = false,
 }: BottomNavigationProps) {
     return (
         <View style={styles.container}>
             <LiquidGlassView style={styles.navBar} interactive effect="clear">
-                <Pressable
-                    style={styles.icon}
-                    onPress={() => {
-                        if (Platform.OS === 'ios') {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        }
-                        onKeypadPress?.();
-                    }}
-                    disabled={disabled}>
-                    <Ionicons name="keypad-outline" size={24} color="#666" />
-                </Pressable>
+                {showSubmitButton && onSubmitPress ? (
+                    <Pressable
+                        style={styles.submitButton}
+                        onPress={() => {
+                            if (Platform.OS === 'ios') {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            }
+                            onSubmitPress();
+                        }}
+                        disabled={disabled || isAnalyzing}>
+                        <LinearGradient
+                            colors={['#4CAF50', '#45A049']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.submitButtonGradient}>
+                            <LiquidGlassView style={styles.submitButtonInner} interactive effect="clear">
+                                <Ionicons name="checkmark" size={24} color="#fff" />
+                            </LiquidGlassView>
+                        </LinearGradient>
+                    </Pressable>
+                ) : (
+                    <Pressable
+                        style={styles.icon}
+                        onPress={() => {
+                            if (Platform.OS === 'ios') {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            }
+                            onKeypadPress?.();
+                        }}
+                        disabled={disabled}>
+                        <Ionicons name="keypad-outline" size={24} color="#666" />
+                    </Pressable>
+                )}
 
                 <Pressable
                     style={styles.centerButton}
@@ -122,6 +148,24 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 28,
         backgroundColor: 'rgba(255, 255, 255, 0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    submitButton: {
+        width: 44,
+        height: 44,
+    },
+    submitButtonGradient: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 22,
+        padding: 2,
+    },
+    submitButtonInner: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
     },

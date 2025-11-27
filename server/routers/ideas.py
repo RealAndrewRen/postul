@@ -5,7 +5,7 @@ from typing import Optional
 import logging
 
 from database import get_db, Idea, Project
-from schema import IdeaAnalysisRequest, IdeaResponse, ExtendedIdeaAnalysis
+from schema import IdeaAnalysisRequest, IdeaResponse, ExtendedIdeaAnalysis, TikiTakaRequest, TikiTakaResponse, TikiTakaMessage
 from services.ai_service import ai_service
 from dependencies import OptionalCurrentUser, get_user_id_or_anonymous
 
@@ -266,4 +266,80 @@ async def update_idea(
         created_at=idea.created_at,
         updated_at=idea.updated_at,
     )
+
+
+@router.post("/tiki-taka", response_model=TikiTakaResponse, status_code=status.HTTP_200_OK)
+async def tiki_taka_conversation(
+    request: TikiTakaRequest,
+    optional_user_id: OptionalCurrentUser = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Tiki-taka conversation mode: Engage in a back-and-forth conversation 
+    to help users think through their startup ideas.
+    
+    Acts as a thoughtful advisor that asks questions and guides users 
+    to discover insights about their ideas themselves.
+    
+    Works for both authenticated and anonymous users.
+    
+    Args:
+        request: Tiki-taka conversation request with transcribed text and conversation history
+        optional_user_id: Optional authenticated user ID (None for anonymous users)
+        db: Database session
+        
+    Returns:
+        TikiTakaResponse with advisor's message and updated conversation history
+    """
+    try:
+        user_id = get_user_id_or_anonymous(optional_user_id)
+        user_type = "authenticated" if optional_user_id else "anonymous"
+        
+        logger.info(f"Tiki-taka conversation for {user_type} user {user_id}")
+        
+        # Convert conversation history to the format expected by AI service
+        conversation_history = []
+        for msg in request.conversation_history:
+            conversation_history.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+        
+        # Generate advisor response
+        advisor_message = await ai_service.tiki_taka_conversation(
+            transcribed_text=request.transcribed_text,
+            conversation_history=conversation_history if conversation_history else None,
+            idea_context=request.idea_context
+        )
+        
+        # Build updated conversation history
+        updated_history = request.conversation_history.copy()
+        
+        # Add user's current message
+        updated_history.append(TikiTakaMessage(
+            role="user",
+            content=request.transcribed_text
+        ))
+        
+        # Add advisor's response
+        updated_history.append(TikiTakaMessage(
+            role="assistant",
+            content=advisor_message
+        ))
+        
+        logger.info(f"Successfully generated tiki-taka response for {user_type} user")
+        
+        return TikiTakaResponse(
+            advisor_message=advisor_message,
+            conversation_history=updated_history
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in tiki-taka conversation: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate advisor response. Please try again."
+        )
 

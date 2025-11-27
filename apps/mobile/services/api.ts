@@ -60,6 +60,22 @@ export interface ProjectDetailsResponse {
   description: string;
 }
 
+export interface TikiTakaMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface TikiTakaRequest {
+  transcribed_text: string;
+  conversation_history?: TikiTakaMessage[];
+  idea_context?: string | null;
+}
+
+export interface TikiTakaResponse {
+  advisor_message: string;
+  conversation_history: TikiTakaMessage[];
+}
+
 class ApiService {
   private baseUrl: string;
 
@@ -145,6 +161,13 @@ class ApiService {
 
   async healthCheck(): Promise<{ status: string; message: string }> {
     return this.request<{ status: string; message: string }>('/health');
+  }
+
+  async tikiTakaConversation(data: TikiTakaRequest): Promise<TikiTakaResponse> {
+    return this.request<TikiTakaResponse>('/api/v1/ideas/tiki-taka', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 
