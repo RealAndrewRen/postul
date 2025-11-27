@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -72,7 +73,7 @@ export default function ProjectDetailScreen() {
 
     const loadProjectData = useCallback(async () => {
         if (!id) return;
-        
+
         try {
             setIsLoading(true);
             const projectId = parseInt(id, 10);
@@ -247,6 +248,7 @@ export default function ProjectDetailScreen() {
                                 {/* Sources */}
                                 {analysis?.sources && analysis.sources.length > 0 && (
                                     <View style={styles.sourcesContainer}>
+                                        <Text style={styles.sectionTitle}>Sources</Text>
                                         {analysis.sources.map((source, index) => (
                                             <View key={index} style={styles.sourceItem}>
                                                 <Pressable
@@ -265,7 +267,22 @@ export default function ProjectDetailScreen() {
                                                 </Pressable>
                                                 <View style={styles.sourceInfo}>
                                                     <Text style={styles.sourceTitle}>{source.title}</Text>
-                                                    <Text style={styles.sourceUrl}>{source.url}</Text>
+                                                    <Pressable
+                                                        onPress={async () => {
+                                                            if (Platform.OS === 'ios') {
+                                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                                            }
+                                                            try {
+                                                                await openBrowserAsync(source.url, {
+                                                                    presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+                                                                });
+                                                            } catch (error) {
+                                                                console.error('Error opening browser:', error);
+                                                                Alert.alert('Error', 'Failed to open link');
+                                                            }
+                                                        }}>
+                                                        <Text style={styles.sourceUrl}>{source.url}</Text>
+                                                    </Pressable>
                                                 </View>
                                             </View>
                                         ))}
@@ -352,7 +369,7 @@ export default function ProjectDetailScreen() {
                                 <Text style={styles.sectionTitle}>Standalone Polls/Enablers</Text>
                                 <View style={styles.pollsContainer}>
                                     {[
-                                        'Create a Cahoot!',
+                                        'Create a Kahoot!',
                                         'Create a Landing page',
                                         'Create interview script',
                                         'Write an email draft',
@@ -431,7 +448,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 44 : 20,
+        paddingTop: Platform.OS === 'ios' ? 56 : 20,
         paddingBottom: 16,
     },
     iconButton: {

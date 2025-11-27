@@ -209,7 +209,7 @@ export default function HomeScreen() {
 
       // Update conversation history
       setTikiTakaHistory(response.conversation_history);
-      
+
       // Scroll to bottom after a short delay to ensure the new message is rendered
       setTimeout(() => {
         tikiTakaScrollViewRef.current?.scrollToEnd({ animated: true });
@@ -248,22 +248,22 @@ export default function HomeScreen() {
 
     try {
       setIsAnalyzing(true);
-      
+
       // Combine all user messages from the conversation into a comprehensive idea text
       const userMessages = tikiTakaHistory
         .filter(msg => msg.role === 'user')
         .map(msg => msg.content)
         .join(' ');
-      
+
       // Also include advisor messages for context (optional, but helpful)
       const advisorMessages = tikiTakaHistory
         .filter(msg => msg.role === 'assistant')
         .map(msg => msg.content)
         .join(' ');
-      
+
       // Create a comprehensive idea description combining the conversation
       const comprehensiveIdea = userMessages + (advisorMessages ? `\n\nContext from conversation: ${advisorMessages}` : '');
-      
+
       console.log('Submitting tiki-taka conversation for analysis:', comprehensiveIdea);
 
       // Step 1: Generate project details and create project first
@@ -510,7 +510,7 @@ export default function HomeScreen() {
           <>
             {/* Blurred Backdrop */}
             <BlurView intensity={20} style={styles.tikiTakaBackdrop} />
-            
+
             {/* Conversation Container */}
             <View style={styles.tikiTakaContainer}>
               {/* Header */}
@@ -532,7 +532,7 @@ export default function HomeScreen() {
               </View>
 
               {/* Messages */}
-              <ScrollView 
+              <ScrollView
                 ref={tikiTakaScrollViewRef}
                 style={styles.tikiTakaScrollView}
                 contentContainerStyle={styles.tikiTakaScrollContent}
@@ -547,12 +547,12 @@ export default function HomeScreen() {
                       styles.tikiTakaMessageContainer,
                       message.role === 'user' ? styles.userMessageContainer : styles.advisorMessageContainer,
                     ]}>
-                    <LiquidGlassView 
+                    <LiquidGlassView
                       style={[
                         styles.tikiTakaMessageCard,
                         message.role === 'user' ? styles.userMessageCard : styles.advisorMessageCard,
-                      ]} 
-                      interactive 
+                      ]}
+                      interactive
                       effect="clear">
                       <Text style={[
                         styles.tikiTakaMessageText,
