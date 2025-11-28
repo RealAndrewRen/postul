@@ -33,7 +33,7 @@ COPY . .
 RUN set -eux && \
     if [ ! -d "assets/onnx" ] || [ -z "$(ls -A assets/onnx/*.onnx 2>/dev/null)" ]; then \
         echo "Downloading Supertonic models..." && \
-        uv run download-supertonic-models --force || ( \
+        uv run python scripts/download_supertonic_models.py --force || ( \
             echo "ERROR: Model download failed!" && \
             echo "This might be due to:" && \
             echo "  1. Network issues" && \
