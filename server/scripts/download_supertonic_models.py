@@ -5,15 +5,12 @@ Script to download Supertonic ONNX models and assets from Hugging Face.
 This script downloads the necessary model files and assets required for TTS.
 Requires Git LFS to be installed and initialized.
 """
+
 import subprocess
 import sys
 import shutil
 import tempfile
 from pathlib import Path
-import logging
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
 
 
 def check_git_lfs() -> bool:
@@ -26,13 +23,13 @@ def check_git_lfs() -> bool:
             text=True,
             check=True,
         )
-        logger.info(f"Git LFS found: {result.stdout.strip()}")
+        print(f"Git LFS found: {result.stdout.strip()}")
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
-        logger.error("Git LFS is not installed or not available")
-        logger.error("Please install Git LFS:")
-        logger.error("  macOS: brew install git-lfs && git lfs install")
-        logger.error("  Other: See https://git-lfs.com")
+        print("ERROR: Git LFS is not installed or not available", file=sys.stderr)
+        print("Please install Git LFS:", file=sys.stderr)
+        print("  macOS: brew install git-lfs && git lfs install", file=sys.stderr)
+        print("  Other: See https://git-lfs.com", file=sys.stderr)
         return False
 
 
@@ -52,28 +49,36 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
 
     # Check if assets directory already has content
     if any(assets_dir.iterdir()):
-        logger.warning(f"Assets directory {assets_dir} is not empty")
+        print(f"WARNING: Assets directory {assets_dir} is not empty", file=sys.stderr)
         if not force:
-            response = input("Do you want to continue and potentially overwrite files? (y/N): ")
+            response = input(
+                "Do you want to continue and potentially overwrite files? (y/N): "
+            )
             if response.lower() != "y":
-                logger.info("Download cancelled")
+                print("Download cancelled")
                 return False
         else:
-            logger.info("Force mode enabled, proceeding with download")
+            print("Force mode enabled, proceeding with download")
 
     try:
-        logger.info(f"Downloading Supertonic models from {repo_url}")
-        logger.info(f"Target directory: {assets_dir.absolute()}")
-        
+        print(f"Downloading Supertonic models from {repo_url}")
+        print(f"Target directory: {assets_dir.absolute()}")
+
         # If directory exists and has content, handle it based on force flag
         if assets_dir.exists() and any(assets_dir.iterdir()):
             if force:
-                logger.info("Force mode: cleaning existing assets directory...")
+                print("Force mode: cleaning existing assets directory...")
                 shutil.rmtree(assets_dir)
                 assets_dir.mkdir(parents=True, exist_ok=True)
             else:
-                logger.warning(f"Assets directory {assets_dir} already exists and is not empty")
-                logger.warning("Use --force flag to overwrite, or remove the directory manually")
+                print(
+                    f"WARNING: Assets directory {assets_dir} already exists and is not empty",
+                    file=sys.stderr,
+                )
+                print(
+                    "Use --force flag to overwrite, or remove the directory manually",
+                    file=sys.stderr,
+                )
                 return False
         else:
             # Ensure parent directory exists
@@ -83,8 +88,8 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
         # This avoids issues with git clone into existing directories
         temp_dir = Path(tempfile.mkdtemp(prefix="supertonic_download_"))
         try:
-            logger.info(f"Cloning repository to temporary directory: {temp_dir}")
-            
+            print(f"Cloning repository to temporary directory: {temp_dir}")
+
             # Clone the repository (shallow clone for faster download)
             clone_result = subprocess.run(
                 ["git", "clone", "--depth", "1", repo_url, str(temp_dir)],
@@ -92,15 +97,17 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
                 capture_output=True,
                 text=True,
             )
-            
+
             if clone_result.returncode != 0:
-                logger.error(f"Git clone failed: {clone_result.stderr}")
+                print(
+                    f"ERROR: Git clone failed: {clone_result.stderr}", file=sys.stderr
+                )
                 return False
-            
-            logger.info("Repository cloned successfully")
-            
+
+            print("Repository cloned successfully")
+
             # Pull Git LFS files explicitly in the temp directory
-            logger.info("Pulling Git LFS files...")
+            print("Pulling Git LFS files...")
             try:
                 subprocess.run(
                     ["git", "lfs", "pull"],
@@ -110,9 +117,12 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
                     text=True,
                     timeout=300,  # 5 minute timeout
                 )
-                logger.info("Git LFS files pulled successfully")
+                print("Git LFS files pulled successfully")
             except subprocess.TimeoutExpired:
-                logger.warning("Git LFS pull timed out, trying alternative method...")
+                print(
+                    "WARNING: Git LFS pull timed out, trying alternative method...",
+                    file=sys.stderr,
+                )
                 subprocess.run(
                     ["git", "lfs", "fetch", "--all"],
                     cwd=str(temp_dir),
@@ -125,8 +135,8 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
                     check=False,
                 )
             except subprocess.CalledProcessError as e:
-                logger.warning(f"Git LFS pull had issues: {e.stderr}")
-                logger.warning("Attempting to fetch LFS files manually...")
+                print(f"WARNING: Git LFS pull had issues: {e.stderr}", file=sys.stderr)
+                print("Attempting to fetch LFS files manually...", file=sys.stderr)
                 # Try alternative: fetch all LFS files
                 subprocess.run(
                     ["git", "lfs", "fetch", "--all"],
@@ -139,9 +149,9 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
                     cwd=str(temp_dir),
                     check=False,
                 )
-            
+
             # Move contents from temp directory to target directory
-            logger.info(f"Moving files to target directory: {assets_dir}")
+            print(f"Moving files to target directory: {assets_dir}")
             for item in temp_dir.iterdir():
                 # Skip .git directory
                 if item.name == ".git":
@@ -153,15 +163,15 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
                     else:
                         dest.unlink()
                 shutil.move(str(item), str(dest))
-            
+
         finally:
             # Clean up temporary directory
             if temp_dir.exists():
                 shutil.rmtree(temp_dir)
-                logger.info("Cleaned up temporary directory")
+                print("Cleaned up temporary directory")
 
-        logger.info("Successfully downloaded Supertonic models")
-        logger.info(f"Models are available at: {assets_dir.absolute()}")
+        print("Successfully downloaded Supertonic models")
+        print(f"Models are available at: {assets_dir.absolute()}")
 
         # Verify essential files exist
         required_paths = [
@@ -172,44 +182,52 @@ def download_models(assets_dir: Path, force: bool = False) -> bool:
             ("onnx/tts.json", "TTS configuration"),
             ("onnx/unicode_indexer.json", "Unicode indexer"),
         ]
-        
+
         all_found = True
         for rel_path, description in required_paths:
             full_path = assets_dir / rel_path
             if full_path.exists():
                 size = full_path.stat().st_size
-                logger.info(f"✓ {description} found: {full_path} ({size:,} bytes)")
+                print(f"✓ {description} found: {full_path} ({size:,} bytes)")
             else:
-                logger.error(f"✗ {description} not found: {full_path}")
+                print(f"✗ {description} not found: {full_path}", file=sys.stderr)
                 all_found = False
-        
+
         # Check for voice styles
         voice_styles_dir = assets_dir / "voice_styles"
         if voice_styles_dir.exists():
             style_files = list(voice_styles_dir.glob("*.json"))
-            logger.info(f"✓ Found {len(style_files)} voice style file(s)")
+            print(f"✓ Found {len(style_files)} voice style file(s)")
         else:
-            logger.warning("✗ Voice styles directory not found")
+            print("✗ Voice styles directory not found", file=sys.stderr)
 
         if not all_found:
-            logger.error("Some required files are missing. Git LFS files may not have been pulled correctly.")
-            logger.error("Try running manually: git lfs pull")
+            print(
+                "ERROR: Some required files are missing. Git LFS files may not have been pulled correctly.",
+                file=sys.stderr,
+            )
+            print("Try running manually: git lfs pull", file=sys.stderr)
             return False
 
         return True
 
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to download models: {e}")
-        logger.error(f"Command: {e.cmd}")
-        logger.error(f"Error output: {e.stderr}")
-        logger.error(f"Standard output: {e.stdout}")
+        print(f"ERROR: Failed to download models: {e}", file=sys.stderr)
+        print(f"Command: {e.cmd}", file=sys.stderr)
+        print(f"Error output: {e.stderr}", file=sys.stderr)
+        print(f"Standard output: {e.stdout}", file=sys.stderr)
         return False
     except FileNotFoundError as e:
-        logger.error(f"File or directory not found: {e}")
-        logger.error("This might indicate a path issue or missing dependencies")
+        print(f"ERROR: File or directory not found: {e}", file=sys.stderr)
+        print(
+            "This might indicate a path issue or missing dependencies", file=sys.stderr
+        )
         return False
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        print(f"ERROR: Unexpected error: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc()
         return False
 
 
@@ -217,13 +235,13 @@ def main():
     """Main entry point."""
     # Check for force flag (useful for Docker/CI)
     force = "--force" in sys.argv or "-f" in sys.argv
-    
+
     # Determine assets directory (default: server/assets)
     script_dir = Path(__file__).parent.parent
     assets_dir = script_dir / "assets"
 
-    logger.info("Supertonic Model Download Script")
-    logger.info("=" * 50)
+    print("Supertonic Model Download Script")
+    print("=" * 50)
 
     # Check Git LFS
     if not check_git_lfs():
@@ -231,15 +249,14 @@ def main():
 
     # Download models
     if download_models(assets_dir, force=force):
-        logger.info("=" * 50)
-        logger.info("Download completed successfully!")
-        logger.info(f"Assets are available at: {assets_dir.absolute()}")
+        print("=" * 50)
+        print("Download completed successfully!")
+        print(f"Assets are available at: {assets_dir.absolute()}")
         sys.exit(0)
     else:
-        logger.error("Download failed")
+        print("ERROR: Download failed", file=sys.stderr)
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-
