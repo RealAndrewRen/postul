@@ -135,3 +135,27 @@ class TTSResponse(BaseModel):
     audio_base64: str = Field(..., description="Base64-encoded WAV audio data")
     text: str = Field(..., description="Original text that was synthesized")
     sample_rate: int = Field(..., description="Audio sample rate")
+
+
+class PollOption(BaseModel):
+    """Single poll option."""
+    text: str = Field(..., min_length=1, max_length=25, description="Poll option text (max 25 characters for X/Twitter)")
+
+
+class SurveyPostMessage(BaseModel):
+    """Single survey post message with poll options."""
+    id: str = Field(..., description="Unique identifier for the post message")
+    text: str = Field(..., min_length=1, max_length=500, description="Post message text")
+    poll_options: List[PollOption] = Field(..., min_length=2, max_length=4, description="Poll options (2-4 options)")
+
+
+class GenerateSurveyPostsRequest(BaseModel):
+    """Request model for generating survey posts."""
+    idea_id: int = Field(..., description="ID of the idea to generate posts for")
+    platform: Optional[str] = Field(None, description="Target platform: 'x' or 'threads'")
+    count: int = Field(default=3, ge=1, le=10, description="Number of post messages to generate (1-10)")
+
+
+class GenerateSurveyPostsResponse(BaseModel):
+    """Response model for generated survey posts."""
+    messages: List[SurveyPostMessage] = Field(..., description="List of generated survey post messages")

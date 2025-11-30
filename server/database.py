@@ -40,6 +40,8 @@ try:
         async_database_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
+        pool_pre_ping=True,  # Verify connections before using them
+        pool_recycle=3600,  # Recycle connections after 1 hour
         echo=settings.debug,
     )
 except Exception as e:
@@ -105,8 +107,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
+        # Note: session.close() is automatically called by the async with context manager
 
 
 async def init_db():
