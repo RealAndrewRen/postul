@@ -89,6 +89,21 @@ export interface TTSResponse {
   sample_rate: number;
 }
 
+export interface GenerateSurveyPostsRequest {
+  idea_id: number;
+  platform?: 'x' | 'threads';
+  count?: number;
+}
+
+export interface SurveyPostMessage {
+  id: string;
+  text: string;
+}
+
+export interface GenerateSurveyPostsResponse {
+  messages: SurveyPostMessage[];
+}
+
 class ApiService {
   private baseUrl: string;
 
@@ -101,7 +116,7 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -193,7 +208,7 @@ class ApiService {
   async getSpeechAudio(text: string, inferenceSteps: number = 2, styleId: number = 0): Promise<Blob> {
     const encodedText = encodeURIComponent(text);
     const url = `${this.baseUrl}/api/v1/tts/audio/${encodedText}?inference_steps=${inferenceSteps}&style_id=${styleId}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -209,6 +224,13 @@ class ApiService {
     }
 
     return await response.blob();
+  }
+
+  async generateSurveyPosts(data: GenerateSurveyPostsRequest): Promise<GenerateSurveyPostsResponse> {
+    return this.request<GenerateSurveyPostsResponse>('/api/v1/ideas/generate-survey-posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 }
 

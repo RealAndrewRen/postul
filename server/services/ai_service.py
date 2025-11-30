@@ -291,6 +291,155 @@ The description should be:
                 "description": transcribed_text[:500] or "A new project idea.",
             }
 
+    async def generate_survey_posts(
+        self,
+        idea_context: str,
+        platform: Optional[str] = None,
+        count: int = 3
+    ) -> List[Dict[str, str]]:
+        """
+        Generate survey post messages for social media platforms (X/Twitter or Threads).
+        Uses OpenAI Responses API with structured output to generate engaging poll posts.
+
+        Args:
+            idea_context: The idea context (transcribed text and/or analysis summary)
+            platform: Target platform ('x' or 'threads'), None for generic posts
+            count: Number of post messages to generate (default: 3)
+
+        Returns:
+            List of dictionaries with 'id' and 'text' keys for each post message
+        """
+        from pydantic import BaseModel, Field
+
+        class SurveyPost(BaseModel):
+            """Single survey post message model for structured output."""
+            text: str = Field(
+                ...,
+                min_length=10,
+                max_length=500,
+                description="Engaging survey post text that encourages interaction"
+            )
+
+        class SurveyPostsResponse(BaseModel):
+            """Response model containing multiple survey posts."""
+            posts: List[SurveyPost] = Field(
+                ...,
+                min_length=1,
+                max_length=10,
+                description="List of survey post messages"
+            )
+
+        # Build platform-specific instructions
+        platform_instructions = ""
+        char_limit = 280  # Default to X/Twitter limit
+        
+        if platform == "x":
+            platform_instructions = """
+- Optimize for X (Twitter) format: concise, punchy, engaging
+- Character limit: 280 characters
+- Use hashtags sparingly (1-2 max)
+- Include emojis to increase engagement
+- Make it shareable and retweetable
+- Focus on asking thought-provoking questions
+"""
+            char_limit = 280
+        elif platform == "threads":
+            platform_instructions = """
+- Optimize for Threads format: conversational, engaging
+- Character limit: 500 characters
+- Can be slightly longer and more conversational than X
+- Use emojis naturally
+- Encourage discussion and replies
+- Focus on community engagement
+"""
+            char_limit = 500
+        else:
+            platform_instructions = """
+- Create engaging survey posts suitable for social media
+- Keep posts concise and engaging
+- Include questions that encourage interaction
+- Use emojis appropriately
+- Make posts shareable and discussion-worthy
+"""
+
+        prompt = f"""Generate {count} engaging survey post messages based on the following startup idea context.
+
+Idea Context:
+{idea_context}
+
+{platform_instructions}
+
+Requirements for each post:
+1. Should be engaging and encourage interaction (likes, replies, shares)
+2. Should relate to the idea and invite audience feedback
+3. Should be formatted as a question or poll-style post
+4. Should be concise and within {char_limit} characters
+5. Should use appropriate emojis (1-3 per post)
+6. Should be professional yet conversational
+7. Each post should have a slightly different angle or focus
+8. Should encourage people to share their thoughts or vote/respond
+
+Generate {count} unique, engaging survey posts that will help validate this startup idea through social media engagement."""
+
+        try:
+            # Use Responses API with structured outputs
+            response = await self.client.responses.parse(
+                model=self.model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert social media content creator specializing in engaging survey posts and polls. "
+                        "You create posts that encourage interaction, discussion, and feedback. "
+                        "Your posts are concise, engaging, and optimized for social media platforms. "
+                        "You understand how to craft questions that invite meaningful responses and engagement.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.8,  # Higher temperature for more creative variations
+                text_format=SurveyPostsResponse,
+            )
+
+            # Extract posts from structured response
+            posts_response = response.output_parsed
+            
+            # Convert to list of dicts with IDs
+            messages = []
+            for idx, post in enumerate(posts_response.posts, start=1):
+                messages.append({
+                    "id": str(idx),
+                    "text": post.text
+                })
+
+            logger.info(f"Successfully generated {len(messages)} survey posts for platform: {platform or 'generic'}")
+            return messages
+
+        except Exception as e:
+            logger.error(f"Error generating survey posts: {e}", exc_info=True)
+            # Return fallback posts
+            return self._get_fallback_survey_posts(idea_context, count)
+
+    def _get_fallback_survey_posts(self, idea_context: str, count: int) -> List[Dict[str, str]]:
+        """Return fallback survey posts when AI service fails."""
+        # Create simple fallback posts based on idea context
+        idea_preview = idea_context[:100] + "..." if len(idea_context) > 100 else idea_context
+        
+        fallback_posts = [
+            {
+                "id": "1",
+                "text": f"What do you think about {idea_preview}? Would love your thoughts! 🚀"
+            },
+            {
+                "id": "2",
+                "text": f"I'm exploring {idea_preview}... What's your take? 💭"
+            },
+            {
+                "id": "3",
+                "text": f"Quick poll: {idea_preview}... Thoughts? 🤔"
+            }
+        ]
+        
+        return fallback_posts[:count]
+
 
 # Singleton instance
 ai_service = AIService()

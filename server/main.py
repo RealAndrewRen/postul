@@ -6,7 +6,7 @@ import logging
 import uvicorn
 
 from config import settings
-from database import init_db
+from database import init_db, engine
 from routers import ideas, projects, tts
 from schema import HealthResponse
 
@@ -34,6 +34,9 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Postul API server...")
+    # Properly dispose of the database engine and close all connections
+    await engine.dispose()
+    logger.info("Database connections closed")
 
 
 # Create FastAPI application

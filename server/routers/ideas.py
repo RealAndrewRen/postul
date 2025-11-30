@@ -5,7 +5,17 @@ from typing import Optional
 import logging
 
 from database import get_db, Idea, Project
-from schema import IdeaAnalysisRequest, IdeaResponse, ExtendedIdeaAnalysis, TikiTakaRequest, TikiTakaResponse, TikiTakaMessage
+from schema import (
+    IdeaAnalysisRequest,
+    IdeaResponse,
+    ExtendedIdeaAnalysis,
+    TikiTakaRequest,
+    TikiTakaResponse,
+    TikiTakaMessage,
+    GenerateSurveyPostsRequest,
+    GenerateSurveyPostsResponse,
+    SurveyPostMessage,
+)
 from services.ai_service import ai_service
 from dependencies import OptionalCurrentUser, get_user_id_or_anonymous
 
@@ -341,5 +351,89 @@ async def tiki_taka_conversation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate advisor response. Please try again."
+        )
+
+
+@router.post("/generate-survey-posts", response_model=GenerateSurveyPostsResponse, status_code=status.HTTP_200_OK)
+async def generate_survey_posts(
+    request: GenerateSurveyPostsRequest,
+    optional_user_id: OptionalCurrentUser = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Generate survey post messages for social media platforms (X/Twitter or Threads).
+    Uses AI to create engaging poll-style posts based on the idea context.
+    
+    Works for both authenticated and anonymous users.
+    
+    Args:
+        request: GenerateSurveyPostsRequest with idea_id, platform, and count
+        optional_user_id: Optional authenticated user ID (None for anonymous users)
+        db: Database session
+        
+    Returns:
+        GenerateSurveyPostsResponse with list of generated post messages
+    """
+    try:
+        user_id = get_user_id_or_anonymous(optional_user_id)
+        user_type = "authenticated" if optional_user_id else "anonymous"
+        
+        logger.info(f"Generating survey posts for idea {request.idea_id} for {user_type} user {user_id}")
+        
+        # Get the idea to access its context
+        result = await db.execute(
+            select(Idea).where(
+                Idea.id == request.idea_id,
+                Idea.user_id == user_id
+            )
+        )
+        idea = result.scalar_one_or_none()
+        
+        if not idea:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Idea with id {request.idea_id} not found"
+            )
+        
+        # Build idea context from transcribed text and analysis
+        idea_context_parts = [f"Idea: {idea.transcribed_text}"]
+        
+        # Add analysis summary if available
+        if idea.analysis_json:
+            try:
+                analysis = ExtendedIdeaAnalysis(**idea.analysis_json)
+                if analysis.summary:
+                    idea_context_parts.append(f"\nSummary: {analysis.summary}")
+                if analysis.problem_statement:
+                    idea_context_parts.append(f"\nProblem: {analysis.problem_statement}")
+            except Exception as e:
+                logger.warning(f"Could not parse analysis JSON: {e}")
+        
+        idea_context = "\n".join(idea_context_parts)
+        
+        # Generate survey posts using AI service
+        posts_data = await ai_service.generate_survey_posts(
+            idea_context=idea_context,
+            platform=request.platform,
+            count=request.count
+        )
+        
+        # Convert to response model
+        messages = [
+            SurveyPostMessage(id=post["id"], text=post["text"])
+            for post in posts_data
+        ]
+        
+        logger.info(f"Successfully generated {len(messages)} survey posts for {user_type} user")
+        
+        return GenerateSurveyPostsResponse(messages=messages)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating survey posts: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate survey posts. Please try again."
         )
 

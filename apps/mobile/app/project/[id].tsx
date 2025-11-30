@@ -341,6 +341,18 @@ export default function ProjectDetailScreen() {
                                             </LiquidGlassView>
                                         </AnimatedButton>
                                     ))}
+                                    <AnimatedButton
+                                        style={styles.actionAgentButton}
+                                        onPress={() => {
+                                            if (Platform.OS === 'ios') {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            }
+                                            router.push(`/project/${id}/survey-post` as any);
+                                        }}>
+                                        <LiquidGlassView style={styles.actionAgentButtonInner} interactive effect="clear">
+                                            <Text style={styles.actionAgentText}>Create a survey post</Text>
+                                        </LiquidGlassView>
+                                    </AnimatedButton>
                                     <View style={styles.actionAgentButtonPlaceholder} />
                                 </View>
 
