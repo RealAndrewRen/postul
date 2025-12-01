@@ -7,8 +7,10 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Platform,
     Pressable,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -276,7 +278,10 @@ export default function FlyerScreen() {
         flyer.status === 'processing';
 
     return (
-        <View style={styles.container}>
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
             <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
             <LinearGradient
                 colors={['#E0D9E8', '#F2C5D6', '#F6D3B5']}
@@ -304,7 +309,11 @@ export default function FlyerScreen() {
                 </View>
 
                 {/* Main Content */}
-                <View style={styles.content}>
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={styles.contentContainer}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}>
                     {/* Image Viewer */}
                     <View style={styles.imageViewerContainer}>
                         <FlyerImageViewer
@@ -372,9 +381,9 @@ export default function FlyerScreen() {
                             />
                         </Animated.View>
                     )}
-                </View>
+                </ScrollView>
             </LinearGradient>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -436,9 +445,14 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
     },
+    contentContainer: {
+        paddingHorizontal: 20,
+        paddingBottom: 20,
+        flexGrow: 1,
+    },
     imageViewerContainer: {
-        flex: 1,
-        marginHorizontal: 20,
+        width: '100%',
+        height: 600, // Fixed height for the image viewer
         marginBottom: 16,
         borderRadius: 20,
         overflow: 'hidden',
@@ -447,7 +461,6 @@ const styles = StyleSheet.create({
     actionButtonsContainer: {
         flexDirection: 'row',
         gap: 12,
-        paddingHorizontal: 20,
         marginBottom: 16,
     },
     actionButton: {

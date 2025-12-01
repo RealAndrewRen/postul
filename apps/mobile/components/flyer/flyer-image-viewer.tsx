@@ -147,14 +147,14 @@ export function FlyerImageViewer({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   gestureRoot: {
-    flex: 1,
     width: '100%',
     height: '100%',
   },

@@ -61,11 +61,13 @@ export function FlyerChatInput({
                   ? "Describe how you'd like to edit the flyer..."
                   : 'Maximum edits reached'
               }
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor="rgba(0, 0, 0, 0.5)"
               multiline
               maxLength={500}
               editable={!disabled && remainingEdits > 0}
               textAlignVertical="top"
+              returnKeyType="default"
+              blurOnSubmit={false}
             />
             <Pressable
               style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
@@ -145,16 +147,20 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 80,
+    maxHeight: 120,
     fontSize: 16,
-    color: '#fff',
+    color: '#000',
     fontFamily: defaultFontFamily,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   inputDisabled: {
     opacity: 0.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(0, 0, 0, 0.5)',
   },
   sendButton: {
     width: 44,
