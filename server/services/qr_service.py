@@ -1,4 +1,5 @@
 """QR code generation service for flyers."""
+
 import qrcode
 from qrcode.image.pil import PilImage
 from io import BytesIO
@@ -37,9 +38,10 @@ class QRCodeService:
         qr.make(fit=True)
 
         img = qr.make_image(fill_color="black", back_color="white")
-        
+
         # Resize to desired size
-        img = img.resize((size, size), resample=PilImage.LANCZOS)
+        from PIL import Image
+        img = img.resize((size, size), resample=Image.LANCZOS)
 
         # Convert to bytes
         buffer = BytesIO()
@@ -91,4 +93,3 @@ class QRCodeService:
 
 # Singleton instance
 qr_service = QRCodeService()
-

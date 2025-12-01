@@ -69,8 +69,8 @@ class FlyerService:
                             model=self.gemini_model,
                             contents=[{"role": "user", "parts": [{"text": prompt}]}],
                             config=types.GenerateContentConfig(
-                                response_mime_type="image/png",
-                                response_modalities=["IMAGE"],
+                                # Note: Gemini API doesn't support image/png as response_mime_type
+                                # We'll parse the response to extract image data
                             ),
                         ),
                     ),
@@ -255,8 +255,8 @@ class FlyerService:
                                 }
                             ],
                             config=types.GenerateContentConfig(
-                                response_mime_type="image/png",
-                                response_modalities=["IMAGE"],
+                                # Note: Gemini API doesn't support image/png as response_mime_type
+                                # We'll parse the response to extract image data
                             ),
                         ),
                     ),
@@ -504,13 +504,36 @@ The flyer should be designed to attract people to scan the QR codes and engage w
             qr_size = 400
             qr_y = self.a4_height - qr_size - margin
 
-            # Left placeholder
-            draw.rectangle(
-                [(margin, qr_y), (margin + qr_size, qr_y + qr_size)],
-                outline="gray",
-                width=3,
-                dash=(10, 10),
-            )
+            # Left placeholder - draw dashed rectangle manually
+            # PIL ImageDraw doesn't support dash parameter, so we draw it manually
+            dash_length = 10
+            gap_length = 10
+            x1, y1 = margin, qr_y
+            x2, y2 = margin + qr_size, qr_y + qr_size
+            
+            # Top edge
+            x = x1
+            while x < x2:
+                draw.line([(x, y1), (min(x + dash_length, x2), y1)], fill="gray", width=3)
+                x += dash_length + gap_length
+            
+            # Bottom edge
+            x = x1
+            while x < x2:
+                draw.line([(x, y2), (min(x + dash_length, x2), y2)], fill="gray", width=3)
+                x += dash_length + gap_length
+            
+            # Left edge
+            y = y1
+            while y < y2:
+                draw.line([(x1, y), (x1, min(y + dash_length, y2))], fill="gray", width=3)
+                y += dash_length + gap_length
+            
+            # Right edge
+            y = y1
+            while y < y2:
+                draw.line([(x2, y), (x2, min(y + dash_length, y2))], fill="gray", width=3)
+                y += dash_length + gap_length
             draw.text(
                 (margin + 50, qr_y + qr_size // 2 - 20),
                 "QR Code",
@@ -518,14 +541,34 @@ The flyer should be designed to attract people to scan the QR codes and engage w
                 font=font_small,
             )
 
-            # Right placeholder
+            # Right placeholder - draw dashed rectangle manually
             right_x = self.a4_width - qr_size - margin
-            draw.rectangle(
-                [(right_x, qr_y), (right_x + qr_size, qr_y + qr_size)],
-                outline="gray",
-                width=3,
-                dash=(10, 10),
-            )
+            x1, y1 = right_x, qr_y
+            x2, y2 = right_x + qr_size, qr_y + qr_size
+            
+            # Top edge
+            x = x1
+            while x < x2:
+                draw.line([(x, y1), (min(x + dash_length, x2), y1)], fill="gray", width=3)
+                x += dash_length + gap_length
+            
+            # Bottom edge
+            x = x1
+            while x < x2:
+                draw.line([(x, y2), (min(x + dash_length, x2), y2)], fill="gray", width=3)
+                x += dash_length + gap_length
+            
+            # Left edge
+            y = y1
+            while y < y2:
+                draw.line([(x1, y), (x1, min(y + dash_length, y2))], fill="gray", width=3)
+                y += dash_length + gap_length
+            
+            # Right edge
+            y = y1
+            while y < y2:
+                draw.line([(x2, y), (x2, min(y + dash_length, y2))], fill="gray", width=3)
+                y += dash_length + gap_length
             draw.text(
                 (right_x + 50, qr_y + qr_size // 2 - 20),
                 "QR Code",

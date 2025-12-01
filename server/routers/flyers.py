@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import logging
+import asyncio
 
 from database import get_db, Flyer, Project, Idea, AsyncSessionLocal
 from schema import (
@@ -29,20 +30,30 @@ async def process_flyer_generation(
     project_id: int,
 ):
     """Background task to generate flyer."""
+    logger.info(f"Background task started for flyer {flyer_id}")
+    # Add a small delay to ensure the commit from the request handler is visible
+    await asyncio.sleep(0.1)  # Small delay to ensure transaction is committed
+    
     async with AsyncSessionLocal() as db:
         try:
             # Update status to processing
-            flyer_result = await db.execute(
-                select(Flyer).where(Flyer.id == flyer_id)
-            )
+            logger.info(f"Updating flyer {flyer_id} status to processing")
+            flyer_result = await db.execute(select(Flyer).where(Flyer.id == flyer_id))
             flyer = flyer_result.scalar_one_or_none()
             if not flyer:
-                logger.error(f"Flyer {flyer_id} not found for background processing")
-                return
+                logger.error(f"Flyer {flyer_id} not found for background processing. Retrying...")
+                # Retry once after a short delay
+                await asyncio.sleep(0.5)
+                flyer_result = await db.execute(select(Flyer).where(Flyer.id == flyer_id))
+                flyer = flyer_result.scalar_one_or_none()
+                if not flyer:
+                    logger.error(f"Flyer {flyer_id} still not found after retry")
+                    return
 
             flyer.status = "processing"
             await db.commit()
             await db.refresh(flyer)
+            logger.info(f"Flyer {flyer_id} status updated to processing")
 
             logger.info(f"Starting background generation for flyer {flyer_id}")
 
@@ -60,7 +71,9 @@ async def process_flyer_generation(
             flyer.status = "completed"
             await db.commit()
 
-            logger.info(f"Successfully completed background generation for flyer {flyer_id}")
+            logger.info(
+                f"Successfully completed background generation for flyer {flyer_id}"
+            )
 
         except Exception as e:
             logger.error(f"Error in background flyer generation: {e}", exc_info=True)
@@ -75,7 +88,10 @@ async def process_flyer_generation(
                     flyer.error_message = str(e)[:500]  # Limit error message length
                     await db.commit()
             except Exception as update_error:
-                logger.error(f"Failed to update flyer error status: {update_error}", exc_info=True)
+                logger.error(
+                    f"Failed to update flyer error status: {update_error}",
+                    exc_info=True,
+                )
 
 
 async def process_flyer_edit(
@@ -84,12 +100,12 @@ async def process_flyer_edit(
     conversation_history: list,
 ):
     """Background task to edit flyer."""
+    logger.info(f"Background edit task started for flyer {flyer_id}")
     async with AsyncSessionLocal() as db:
         try:
             # Get flyer
-            flyer_result = await db.execute(
-                select(Flyer).where(Flyer.id == flyer_id)
-            )
+            logger.info(f"Fetching flyer {flyer_id} for editing")
+            flyer_result = await db.execute(select(Flyer).where(Flyer.id == flyer_id))
             flyer = flyer_result.scalar_one_or_none()
             if not flyer:
                 logger.error(f"Flyer {flyer_id} not found for background editing")
@@ -102,9 +118,11 @@ async def process_flyer_edit(
                 return
 
             # Update status to processing
+            logger.info(f"Updating flyer {flyer_id} status to processing")
             flyer.status = "processing"
             await db.commit()
             await db.refresh(flyer)
+            logger.info(f"Flyer {flyer_id} status updated to processing")
 
             logger.info(f"Starting background edit for flyer {flyer_id}")
 
@@ -137,7 +155,10 @@ async def process_flyer_edit(
                     flyer.error_message = str(e)[:500]  # Limit error message length
                     await db.commit()
             except Exception as update_error:
-                logger.error(f"Failed to update flyer error status: {update_error}", exc_info=True)
+                logger.error(
+                    f"Failed to update flyer error status: {update_error}",
+                    exc_info=True,
+                )
 
 
 @router.post(
@@ -233,10 +254,12 @@ async def generate_flyer(
         )
 
         db.add(flyer)
-        await db.flush()
+        await db.commit()  # Commit immediately so background task can see it
         await db.refresh(flyer)
 
         # Start background task for generation
+        # FastAPI BackgroundTasks supports async functions - they will be awaited after response
+        logger.info(f"Scheduling background task for flyer {flyer.id}")
         background_tasks.add_task(
             process_flyer_generation,
             flyer.id,
@@ -245,9 +268,8 @@ async def generate_flyer(
             problem_statement,
             request.project_id,
         )
-
         logger.info(
-            f"Started background generation for flyer {flyer.id} (project {request.project_id})"
+            f"Background task scheduled for flyer {flyer.id} (project {request.project_id})"
         )
 
         return GenerateFlyerResponse(
@@ -336,14 +358,15 @@ async def edit_flyer(
         await db.refresh(flyer)
 
         # Start background task for editing
+        # FastAPI BackgroundTasks supports async functions - they will be awaited after response
+        logger.info(f"Scheduling background edit task for flyer {flyer_id}")
         background_tasks.add_task(
             process_flyer_edit,
             flyer_id,
             request.edit_instruction,
             conversation_history,
         )
-
-        logger.info(f"Started background edit for flyer {flyer_id}")
+        logger.info(f"Background edit task scheduled for flyer {flyer_id}")
 
         return EditFlyerResponse(
             image_url=None,  # Will be updated by background task
