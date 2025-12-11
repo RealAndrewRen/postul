@@ -41,12 +41,12 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8081
 
 3. Run the server:
 ```bash
-python main.py
+uv run python main.py
 ```
 
 Or with uvicorn directly:
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Database Schema

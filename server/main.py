@@ -104,7 +104,7 @@ def main():
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=settings.debug,
         log_level="debug" if settings.debug else "info",
         timeout_keep_alive=200,  # 200 seconds keep-alive timeout
