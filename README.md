@@ -308,6 +308,7 @@ For questions, issues, or feature requests, please open an issue on GitHub.
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://ahnsv.github.io/"><img src="https://avatars.githubusercontent.com/u/24207964?v=4?s=100" width="100px;" alt="Tae/Humphrey"/><br /><sub><b>Tae/Humphrey</b></sub></a><br /><a href="#projectManagement-ahnsv" title="Project Management">📆</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/RealAndrewRen"><img src="https://avatars.githubusercontent.com/u/108499792?v=4?s=100" width="100px;" alt="Andrew Ren"/><br /><sub><b>Andrew Ren</b></sub></a><br /><a href="#business-RealAndrewRen" title="Business development">💼</a></td>
     </tr>
   </tbody>
 </table>
