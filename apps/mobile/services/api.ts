@@ -1,5 +1,12 @@
 import { getApiUrl } from '@/constants/api';
 
+export interface Source {
+  title: string;
+  url: string;
+  checked: boolean;
+  image_url?: string | null;
+}
+
 export interface IdeaAnalysis {
   problem_statement: string;
   summary: string;
@@ -9,6 +16,9 @@ export interface IdeaAnalysis {
   threats: string;
   actionable_items: string[];
   validation_priority: string;
+  saturation_score: number;
+  juicy_score: number;
+  sources: Source[];
 }
 
 export interface Idea {
@@ -37,6 +47,109 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectCreateRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface GenerateProjectDetailsRequest {
+  transcribed_text: string;
+}
+
+export interface ProjectDetailsResponse {
+  name: string;
+  description: string;
+}
+
+export interface TikiTakaMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface TikiTakaRequest {
+  transcribed_text: string;
+  conversation_history?: TikiTakaMessage[];
+  idea_context?: string | null;
+}
+
+export interface TikiTakaResponse {
+  advisor_message: string;
+  conversation_history: TikiTakaMessage[];
+}
+
+export interface TTSRequest {
+  text: string;
+  inference_steps?: number;
+  style_id?: number;
+  sample_rate?: number;
+}
+
+export interface TTSResponse {
+  audio_base64: string;
+  text: string;
+  sample_rate: number;
+}
+
+export interface GenerateSurveyPostsRequest {
+  idea_id: number;
+  platform?: 'x' | 'threads';
+  count?: number;
+}
+
+export interface PollOption {
+  text: string;
+}
+
+export interface SurveyPostMessage {
+  id: string;
+  text: string;
+  poll_options: PollOption[];
+}
+
+export interface GenerateSurveyPostsResponse {
+  messages: SurveyPostMessage[];
+}
+
+export type FlyerStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface Flyer {
+  id: number;
+  user_id: string;
+  project_id: number;
+  idea_id: number;
+  image_url: string | null;
+  edit_count: number;
+  conversation_history: Array<{ role: string; content: string }> | null;
+  status: FlyerStatus;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerateFlyerRequest {
+  project_id: number;
+  idea_id: number;
+}
+
+export interface GenerateFlyerResponse {
+  flyer_id: number;
+  image_url: string | null;
+  edit_count: number;
+  status: FlyerStatus;
+}
+
+export interface EditFlyerRequest {
+  edit_instruction: string;
+  conversation_history?: Array<{ role: string; content: string }> | null;
+}
+
+export interface EditFlyerResponse {
+  image_url: string | null;
+  edit_count: number;
+  conversation_history: Array<{ role: string; content: string }>;
+  status: FlyerStatus;
+}
+
 class ApiService {
   private baseUrl: string;
 
@@ -49,7 +162,7 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -106,8 +219,86 @@ class ApiService {
     return this.request<Project>(`/api/v1/projects/${projectId}`);
   }
 
+  async createProject(data: ProjectCreateRequest): Promise<Project> {
+    return this.request<Project>('/api/v1/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateProjectDetails(data: GenerateProjectDetailsRequest): Promise<ProjectDetailsResponse> {
+    return this.request<ProjectDetailsResponse>('/api/v1/projects/generate-details', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async healthCheck(): Promise<{ status: string; message: string }> {
     return this.request<{ status: string; message: string }>('/health');
+  }
+
+  async tikiTakaConversation(data: TikiTakaRequest): Promise<TikiTakaResponse> {
+    return this.request<TikiTakaResponse>('/api/v1/ideas/tiki-taka', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async synthesizeSpeech(data: TTSRequest): Promise<TTSResponse> {
+    return this.request<TTSResponse>('/api/v1/tts/synthesize', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getSpeechAudio(text: string, inferenceSteps: number = 2, styleId: number = 0): Promise<Blob> {
+    const encodedText = encodeURIComponent(text);
+    const url = `${this.baseUrl}/api/v1/tts/audio/${encodedText}?inference_steps=${inferenceSteps}&style_id=${styleId}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.detail || errorData.message || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    return await response.blob();
+  }
+
+  async generateSurveyPosts(data: GenerateSurveyPostsRequest): Promise<GenerateSurveyPostsResponse> {
+    return this.request<GenerateSurveyPostsResponse>('/api/v1/ideas/generate-survey-posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateFlyer(data: GenerateFlyerRequest): Promise<GenerateFlyerResponse> {
+    return this.request<GenerateFlyerResponse>('/api/v1/flyers/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async editFlyer(flyerId: number, data: EditFlyerRequest): Promise<EditFlyerResponse> {
+    return this.request<EditFlyerResponse>(`/api/v1/flyers/${flyerId}/edit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFlyer(flyerId: number): Promise<Flyer> {
+    return this.request<Flyer>(`/api/v1/flyers/${flyerId}`);
+  }
+
+  async getFlyerByProject(projectId: number): Promise<Flyer> {
+    return this.request<Flyer>(`/api/v1/flyers/project/${projectId}`);
   }
 }
 

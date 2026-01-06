@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { Platform, Text, TextInput } from 'react-native';
+import { Text, TextInput } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -45,8 +45,36 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          animation: 'slide_from_right',
+          animationDuration: 300,
+        }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="project/[id]"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 300,
+          }}
+        />
+        <Stack.Screen
+          name="project/[id]/survey-post"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 300,
+          }}
+        />
+        <Stack.Screen
+          name="project/[id]/flyer"
+          options={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 300,
+          }}
+        />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

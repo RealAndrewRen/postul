@@ -6,8 +6,8 @@ import logging
 import uvicorn
 
 from config import settings
-from database import init_db
-from routers import ideas, projects
+from database import init_db, engine
+from routers import ideas, projects, tts, flyers
 from schema import HealthResponse
 
 # Configure logging
@@ -34,6 +34,9 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Postul API server...")
+    # Properly dispose of the database engine and close all connections
+    await engine.dispose()
+    logger.info("Database connections closed")
 
 
 # Create FastAPI application
@@ -57,6 +60,8 @@ app.add_middleware(
 # Include routers
 app.include_router(ideas.router)
 app.include_router(projects.router)
+app.include_router(tts.router)
+app.include_router(flyers.router)
 
 
 # Health check endpoint
@@ -99,9 +104,10 @@ def main():
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         reload=settings.debug,
         log_level="debug" if settings.debug else "info",
+        timeout_keep_alive=200,  # 200 seconds keep-alive timeout
     )
 
 

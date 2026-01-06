@@ -1,0 +1,30 @@
+{
+  "projectName": "postul",
+  "projectOwner": "frontrowvanguard",
+  "files": [
+    "README.md"
+  ],
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "ahnsv",
+      "name": "Tae/Humphrey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/24207964?v=4",
+      "profile": "https://ahnsv.github.io/",
+      "contributions": [
+        "projectManagement"
+      ]
+    },
+    {
+      "login": "RealAndrewRen",
+      "name": "Andrew Ren",
+      "avatar_url": "https://avatars.githubusercontent.com/u/108499792?v=4",
+      "profile": "https://github.com/RealAndrewRen",
+      "contributions": [
+        "business"
+      ]
+    }
+  ]
+}
